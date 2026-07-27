@@ -19,7 +19,8 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 
 ## Transport security
 
-- The plugin **refuses non-HTTPS requests** at the controller level (checks `is_ssl()`), even if the server is misconfigured to accept plain HTTP on the REST route — defense in depth, not reliance on server config alone.
+- The plugin **refuses non-HTTPS requests** at the controller level (checks `is_ssl()`), even if the server is misconfigured to accept plain HTTP on the REST route — defense in depth, not reliance on server config alone. This returns the plugin's own `400 https_required` (see [api-spec.md](api-spec.md#endpoints)) — distinct from WordPress's own authentication error family, since it's a transport precondition, not an identity check.
+- **Reverse proxy / CDN caveat:** `is_ssl()` reflects what WordPress believes about the current request, which is only correct behind a reverse proxy or CDN if the server is configured to translate `X-Forwarded-Proto` (or equivalent) into WordPress's expected `$_SERVER['HTTPS']`. Self-hosters running behind a proxy must configure this at the web-server/proxy level — the plugin cannot detect or correct a misconfigured proxy, and this is called out explicitly rather than assumed to work.
 - Android's `network_security_config.xml` disallows cleartext traffic (`cleartextTrafficPermitted="false"`) so the app cannot accidentally be pointed at an `http://` endpoint.
 
 ## Credential storage (Android)
@@ -30,10 +31,10 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 
 ## Input handling (WordPress plugin)
 
-- All incoming fields pass through explicit sanitizers before use: `sanitize_text_field` for title/memo/source, `esc_url_raw` for the URL, with server-side length caps.
+- All incoming fields pass through explicit sanitizers before use: `sanitize_text_field` for title/memo, `esc_url_raw` for the URL, `sanitize_key` for `source`, each with its own server-side length cap (see [api-spec.md](api-spec.md#endpoints) for the exact per-field limits, measured in `mb_strlen` characters — the primary content here is Japanese text, so byte-length caps would be the wrong unit).
 - `post_content` is built entirely from a server-side template (see [api-spec.md](api-spec.md#post-creation-semantics)) — the client never supplies raw HTML that gets stored or rendered unescaped. This forecloses stored-XSS via the shared-text/memo fields.
-- `post_status` is hardcoded to `draft` in the service layer; the client cannot force `publish` no matter what it sends — even a compromised or buggy client can only ever create drafts, never public content.
-- Request body size is capped (default 256 KB) to bound worst-case `shared_text` payloads and reduce trivial DoS surface from a single caller.
+- `post_status` is hardcoded to `draft`, and `post_author` is always the authenticated user — the client cannot force `publish` or attribute a post to another user no matter what it sends. There is no parameter in the domain/service layer capable of expressing either, not just a validation rule that happens to reject it.
+- **No application-level total request-body-size cap in v1.** The per-field length caps above already bound the realistic worst case; outsized requests are left to WordPress/PHP/web-server limits (`post_max_size`, `upload_max_filesize`, etc.) rather than the plugin re-implementing a size check whose failure mode (how do you return clean JSON for a request the web server already truncated or rejected?) is genuinely ambiguous and better left to server configuration. Revisit only if real-world abuse patterns justify it.
 
 ## Authorization
 
@@ -50,7 +51,7 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 | Stored XSS via shared text/memo | Server-side templated body, all fields sanitized/escaped before storage and before render in wp-admin |
 | Credential theft from a compromised Android device | Keystore-backed encrypted storage; out of scope beyond standard Android app sandboxing (not defending against a rooted/compromised device) |
 | Abuse of the endpoint from an unrelated caller | Requires valid Application Password + capability check; recommend WAF/rate-limit plugin if the site is broadly reachable (see [api-spec.md](api-spec.md#rate-limiting)) |
-| Plugin activated then abandoned, leaving stale data/hooks | Clean `uninstall.php` removes the plugin's added term/options; deactivation does not delete existing draft posts (data ownership stays with the site) |
+| Plugin activated then abandoned, leaving stale data/hooks | `uninstall.php` removes only the plugin's own options — it never deletes the `素材候補` category or any posts, even if the category is empty. A same-named category may predate the plugin or be reused by the site owner for other purposes, so deleting by name (or even by a "we created it" flag) is judged not worth the risk for v1; see [phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md) for the full rationale. Data ownership stays with the site. |
 
 ## Non-goals for v1
 
