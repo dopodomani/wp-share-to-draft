@@ -81,33 +81,47 @@ flowchart TB
 
 ## WordPress plugin — layering
 
+Four layers: `Rest` (WordPress-aware entry point) → `Application` (orchestration + ports) → `Domain` (dependency-free value objects) and `Infrastructure` (WordPress adapters implementing Application's ports). Full detail, class signatures, and the review that produced this shape: [docs/phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md).
+
 ```mermaid
 flowchart TB
     subgraph rest["Rest"]
         Controller["DraftController\n(WP_REST_Controller)"]
-        Auth["Auth guard\n(Application Password / capability check)"]
     end
 
-    subgraph domainp["Domain"]
+    subgraph application["Application"]
+        UseCase["CreateDraftUseCase (interface)"]
         Service["CreateDraftService"]
-        VO["DraftPayload\n(value object + validation)"]
+        Factory["DraftPayloadFactory"]
+        Ports["InputSanitizerInterface\nPostRepositoryInterface\nPostBodyRendererInterface"]
     end
 
-    subgraph support["Support"]
-        Sanitizer["InputSanitizer"]
+    subgraph domainp["Domain (pure PHP, no WordPress)"]
+        VO["DraftPayload / DraftResult\n(dependency-free value objects)"]
+    end
+
+    subgraph infra["Infrastructure"]
+        WpSanitizer["WordPressInputSanitizer"]
         PostRepo["WpPostRepository\n(wraps wp_insert_post)"]
+        WpTemplate["PostBodyTemplate"]
     end
 
-    Controller --> Auth
-    Controller --> Service
+    Controller --> UseCase
+    Controller --> Factory
+    Factory --> Ports
+    Factory --> VO
+    Service -.implements.-> UseCase
+    Service --> Ports
     Service --> VO
-    Service --> Sanitizer
-    Service --> PostRepo
+    WpSanitizer -.implements.-> Ports
+    PostRepo -.implements.-> Ports
+    WpTemplate -.implements.-> Ports
 ```
 
-- `DraftController` is the only WordPress-aware entry point exposed as a route; it does argument validation via the REST API's built-in schema, then delegates.
-- `CreateDraftService` contains the actual business rule ("build title as `[INBOX] {original}`, assign category, compose body") and is unit-testable with a mocked `WpPostRepository` — no live WordPress needed.
-- `WpPostRepository` is the only place that calls `wp_insert_post()` / `wp_set_object_terms()`, isolating WordPress core functions behind an interface so tests can run under plain PHPUnit (with WP function stubs) instead of full WP integration tests.
+- `DraftController` is the only WordPress-aware entry point exposed as a route; it depends on the `CreateDraftUseCase` *interface*, never the concrete service, so it can be tested with a mock use case without fighting PHP's `final` keyword.
+- `DraftPayload` (Domain) is a fully dependency-free value object — it validates its own basic invariants in plain PHP but knows nothing about WordPress or the sanitizer; sanitization is orchestrated once, in `Application/DraftPayloadFactory`, before a `DraftPayload` is ever constructed. This keeps the "Domain depends on interfaces only" rule honest — a value object depends on nothing at all.
+- `CreateDraftService` (Application) contains the actual business rule ("build title as `[INBOX] {original}`, assign the pre-configured category, compose body, always as a draft") and is unit-testable against Mockery mocks of its two ports — no live WordPress needed.
+- `WpPostRepository` (Infrastructure) is the only place that calls `wp_insert_post()` / `wp_set_object_terms()` / `term_exists()`, isolating WordPress core functions behind an interface so `Application`/`Domain` tests can run under plain PHPUnit (with Brain\Monkey stubs only where `Infrastructure`/`Rest` classes are themselves under test) instead of full WP integration tests.
 
 ## Extension points (why this shape supports the roadmap)
 
