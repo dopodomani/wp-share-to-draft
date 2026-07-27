@@ -62,4 +62,12 @@ Kotlin over Java: current Android-recommended language, better null-safety (rele
 
 **Decision:** `composer.json` at `wordpress-plugin/` root for PHP dependency management (autoloading, PHPUnit, static analysis tools); `build.gradle.kts` for Android.
 
-**Why:** Both are the de facto standard tooling for their ecosystems; no alternative seriously considered. Composer's PSR-4 autoloading is what makes the `Rest/Domain/Support` namespace layout in the directory structure work cleanly.
+**Why:** Both are the de facto standard tooling for their ecosystems; no alternative seriously considered. Composer's PSR-4 autoloading is what makes the `Rest/Application/Domain/Infrastructure` namespace layout in the directory structure work cleanly (see [docs/phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md#layering) for why it's four layers, not the three originally sketched here).
+
+## 10. JSON library: kotlinx.serialization
+
+**Decision:** `kotlinx.serialization` (via `retrofit2-kotlinx-serialization-converter`) for the Android app's DTO (de)serialization, over Moshi or Gson.
+
+**Alternatives considered:** Moshi (Square, code-gen or reflection-based, widely used with Retrofit); Gson (older, fully reflection-based, no longer actively recommended for new projects by its own maintainers).
+
+**Why:** `kotlinx.serialization` is Kotlin-native (part of the Kotlin project itself, not a third-party addition), requires no reflection at runtime and no separate annotation-processing build step (unlike Moshi's codegen or Gson's reflection), and integrates with Retrofit via an official converter. Given this project's DTOs are small and stable (mirroring [docs/api-spec.md](api-spec.md) exactly, per [docs/phase3-android-app-design.md](phase3-android-app-design.md#5-retrofit-api)), none of Moshi's extra codegen tooling or Gson's broader reflection-based flexibility is needed — the simpler, build-time-checked option was preferred. Confirmed in Phase 3a review (2026-07-28).
