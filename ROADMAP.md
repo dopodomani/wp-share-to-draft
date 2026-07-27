@@ -41,7 +41,7 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 - [x] All input fields sanitized/validated server-side per [docs/security.md](docs/security.md)
 - [x] PHPUnit suite passes with no live WordPress instance required (39 tests, 96 assertions)
 - [x] PHP lint / WordPress Coding Standards (PHPCS) run clean locally (with a documented, justified ruleset customization — see [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md#phpcs-ruleset-customization))
-- [ ] Manual smoke test (curl/Postman/HTTPie against LocalWP or Docker WP) covers the happy path and every documented error code — **blocked on a running WordPress instance being available; not yet done**
+- [ ] Manual smoke test against LocalWP or `wp-env` (Docker) covers the happy path and every documented error code — procedure and checklist ready in [docs/phase2-smoke-test-guide.md](docs/phase2-smoke-test-guide.md), results recorded in [docs/phase2-smoke-test-results.md](docs/phase2-smoke-test-results.md); **not yet run**
 - [x] Any design deviation discovered during implementation is reflected back into `docs/phase2-wordpress-plugin-design.md` and `docs/api-spec.md` (if API-shaped) **before** the corresponding code is merged
 
 ## Phase 3 — Android Share Target app
