@@ -37,9 +37,9 @@ stateDiagram-v2
         Loading --> Error: Any error (see §7)
         Error --> Idle: Tap Edit
         Error --> Loading: Tap Retry
+        Success --> [*]: Tap Done (finish activity)
     }
 
-    Success --> [*]: Tap Done (finish activity)
     Confirm --> [*]: Tap Cancel (finish activity, discard)
 ```
 
@@ -76,7 +76,7 @@ sequenceDiagram
     UseCase->>Dest: send(captureItem)
     Dest->>WP: HTTPS POST /wp-json/material-capture/v1/draft
     WP-->>Dest: 201 + body, or an error status/code
-    Dest-->>UseCase: Result<DraftResult> (success) or CaptureError (failure)
+    Dest-->>UseCase: Result of DraftResult (success) or CaptureError (failure)
     UseCase-->>VM: same
     VM->>VM: State -> Success(result) or Error(item, error)
     VM->>User: Show link + Done, or message + Retry/Edit
