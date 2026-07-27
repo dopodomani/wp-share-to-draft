@@ -188,18 +188,33 @@ This table is the single source of truth the controller's catch blocks implement
 
 ## Test plan
 
-**Unit tests (Phase 2b Definition of Done — no live WordPress):**
+### Tooling and roles (confirmed 2026-07-27)
+
+- **PHPUnit** is the test runner for the whole `Domain`/`Support`/`Rest` unit suite.
+- **Brain\Monkey** stubs and sets expectations on WordPress *functions and hooks* specifically — `wp_insert_post`, `current_user_can`, `sanitize_text_field`, `add_action`, `term_exists`, `wp_set_object_terms`, etc. It owns anything that is a bare WordPress function call or hook registration.
+- **Mockery** mocks *object* dependencies within this plugin's own code — `WpPostRepositoryInterface`, `InputSanitizer`, `PostBodyTemplate` — wherever a class under test collaborates with another class rather than calling a WordPress function directly. `CreateDraftServiceTest` is the primary consumer: it mocks `WpPostRepositoryInterface` via Mockery rather than stubbing `wp_insert_post` via Brain\Monkey, since `CreateDraftService` never calls WordPress functions directly (only `WpPostRepository` does — see [File layout](#file-layout)).
+
+### Testing philosophy
+
+Tests target **this project's own behavior**, not WordPress's internals:
+
+- Inputs → outputs (given a `DraftPayload`, does `CreateDraftService` build the right title/body/category and return the right `DraftResult`?).
+- Post-generation rules (`[INBOX] ` prefix, server-side `draft` status, body template shape).
+- Error conversion (a repository failure or invalid payload maps to the exact `code`/status in [Error mapping](#error-mapping-controller--api-specmd)).
+
+Tests avoid over-asserting on *how many times* or *in what internal order* WordPress functions are called (e.g. do not assert `wp_insert_post` was called "exactly once with these exact 47 argument combinations" beyond what the behavior actually requires) — that couples the suite to WordPress's implementation details rather than this plugin's contract, and makes the suite brittle across WP core versions without adding real regression protection.
+
+### Unit tests (Phase 2b Definition of Done — no live WordPress)
 
 - `DraftPayloadTest`: valid input constructs successfully; missing `title`/`url` throws `InvalidPayloadException` with the right `$code`; invalid URL throws with `invalid_url`; optional fields default correctly (`source` → `unknown`, `sharedAt` → construction time).
-- `CreateDraftServiceTest` (using a fake `WpPostRepositoryInterface`): title is prefixed with `[INBOX] `; category is requested via `ensureCategory('素材候補')`; `insertDraft` is always called with a draft-implying signature (no way to pass `publish`); returned `DraftResult` fields match the repository fake's return values; repository failure (fake throws) surfaces as `DraftCreationFailedException`.
-- `InputSanitizerTest`: each sanitize method strips/escapes as expected on a table of adversarial inputs (script tags, oversized strings, malformed URLs).
-- `PostBodyTemplateTest`: rendered body matches the exact template from api-spec.md for a payload with and without `shared_text`/`memo`.
+- `CreateDraftServiceTest` (Mockery mock of `WpPostRepositoryInterface`): title is prefixed with `[INBOX] `; category is requested via `ensureCategory('素材候補')`; `insertDraft` is always called with a draft-implying signature (no way to pass `publish`); returned `DraftResult` fields match the mock's return values; repository failure (mock throws) surfaces as `DraftCreationFailedException`.
+- `InputSanitizerTest` (Brain\Monkey stubs for `sanitize_text_field`/`esc_url_raw`/etc.): each sanitize method strips/escapes as expected on a table of adversarial inputs (script tags, oversized strings, malformed URLs) — asserting the *result*, not the stub call count.
+- `PostBodyTemplateTest`: rendered body matches the exact template from api-spec.md for a payload with and without `shared_text`/`memo`. Pure formatting logic, no WordPress stubbing needed.
+- `DraftControllerTest` (Brain\Monkey for `current_user_can`/`is_ssl`, Mockery for `CreateDraftService`): `permission_callback` returns the correct allow/deny per [Error mapping](#error-mapping-controller--api-specmd) for each of (HTTPS+capable, HTTPS+incapable, plain HTTP) — verifying the *decision*, not internal WP call sequencing.
 
-**Deferred to Phase 4 (integration, needs a live or Docker WordPress):**
+### Integration test scope (designed separately, gates Phase 4)
 
-- `DraftController` route registration and permission callback against real WP capability checks.
-- `WpPostRepository` against a real `wp_insert_post` call.
-- End-to-end HTTP round trip (curl/Postman) including real Application Password auth.
+Unit tests above deliberately stop short of anything requiring a real WordPress runtime. Per the user's direction, integration tests — REST route registration, authentication/authorization against real WordPress capability checks, and actual post creation via a real `wp_insert_post` — are **designed as their own reviewable document**, not folded into this one. [ROADMAP.md](../ROADMAP.md) now gates Phase 4 the same way as Phases 2/3: a **Phase 4a design sub-stage** produces `docs/phase4-integration-test-design.md` (test environment choice — e.g. `wp-env`/Docker —, scenarios, and pass/fail criteria) for review before any integration test is written or run.
 
 ## Non-goals for Phase 2
 
@@ -208,8 +223,10 @@ This table is the single source of truth the controller's catch blocks implement
 - No duplicate-URL detection, no custom post type, no tag suggestion — all explicitly Phase 6+ ([ROADMAP.md](../ROADMAP.md#phase-6--platform-expansion-post-launch)).
 - No GitHub Actions CI for this plugin yet (Phase 5); Phase 2b DoD only requires PHPCS/PHPUnit runnable locally.
 
-## Open questions for review
+## Design decisions confirmed in review (2026-07-27)
 
-1. **PHP min version 8.1 vs 8.3** — the user's dev-environment notes recommend installing PHP 8.3 locally, but plugins commonly target a lower floor for host compatibility (many WordPress hosts still default to 8.1). Proposed: target 8.1 as the plugin's declared minimum, develop/test on 8.3. Confirm this is acceptable, or state a different floor.
-2. **PHPUnit WP-stubbing approach** — `Brain\Monkey` vs `WP_Mock` for stubbing `wp_insert_post` etc. in unit tests (both are common in the WP plugin ecosystem). No strong reason to prefer one; proposing **Brain\Monkey** (pairs naturally with Mockery, which is already implied by "unit-testable structure"). Flagging as a choice rather than assuming.
-3. **`素材候補` category uniqueness** — assuming this is a plain `category` taxonomy term (not a custom taxonomy). Confirm, since a custom taxonomy would change `ensureCategory()`'s implementation (still isolated behind the same interface, but worth confirming before coding it).
+1. **PHP minimum version: 8.1.** Declared plugin minimum is PHP 8.1 for host compatibility; development/testing is done on PHP 8.3 as recommended in the dev-environment setup.
+2. **PHPUnit WP-stubbing: Brain\Monkey.** Used with Mockery for stubbing `wp_insert_post`, `wp_set_object_terms`, `term_exists`, etc. in `Domain`/`Support` unit tests.
+3. **`素材候補` is a standard `category` taxonomy term**, not a custom taxonomy. `WpPostRepository::ensureCategory()` is implemented against the built-in `category` taxonomy (`term_exists`/`wp_insert_term`/`wp_set_object_terms` with `'category'`).
+
+These are now locked for Phase 2b implementation. Any further change to them must update this section (and `composer.json`'s `require.php` once written) before the corresponding code changes.
