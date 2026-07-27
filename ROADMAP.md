@@ -2,47 +2,84 @@
 
 Each phase gates the next — a phase is not started until the previous one is reviewed/accepted.
 
-## Phase 1 — Design (current)
+## Process
 
+Every implementation phase (2 and 3) is split into a **design sub-stage** and a **build sub-stage**:
+
+1. **Design sub-stage** — produce a reviewable design doc (no code). Deliverable is a single markdown file under `docs/` that can be read and approved on its own.
+2. **Review gate** — the user reviews the design doc. Implementation does not start until the design is explicitly approved. If review changes the design, the **doc is updated first**, in its own commit, before any related code commit.
+3. **Build sub-stage** — implement against the approved design. The phase's Definition of Done (below) must be fully met before moving to the next phase.
+
+This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and design decisions get recorded in [docs/tech-decisions.md](docs/tech-decisions.md).
+
+## Phase 1 — Design ✅ complete
+
+**Definition of Done:**
 - [x] Architecture ([docs/architecture.md](docs/architecture.md))
 - [x] API specification ([docs/api-spec.md](docs/api-spec.md))
 - [x] Technology decisions ([docs/tech-decisions.md](docs/tech-decisions.md))
 - [x] Security policy ([docs/security.md](docs/security.md))
 - [x] Repository layout ([README.md](README.md#repository-layout))
-- [ ] Design review sign-off → unblocks Phase 2
+- [x] Design review sign-off → unblocked Phase 2
 
 ## Phase 2 — WordPress plugin
 
-- [ ] `composer.json` + PSR-4 skeleton (`Rest/`, `Domain/`, `Support/`)
-- [ ] `POST /wp-json/material-capture/v1/draft` per [api-spec.md](docs/api-spec.md)
-- [ ] Application Password auth guard + `edit_posts` capability check
-- [ ] `素材候補` category auto-created on activation
-- [ ] Clean `uninstall.php`
-- [ ] PHPUnit suite for `Domain/` (no live WP required)
-- [ ] PHP lint / static analysis wired locally (CI comes in Phase 5, or earlier if trivial)
+### Phase 2a — Detailed design (current)
+
+**Definition of Done:**
+- [x] [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md) written: concrete file/class layout, method signatures, validation rules, error mapping, activation/deactivation/uninstall behavior, test plan
+- [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
+
+### Phase 2b — Implementation (blocked until 2a is approved)
+
+**Definition of Done:**
+- [ ] `composer.json` + PSR-4 skeleton (`Rest/`, `Domain/`, `Support/`) matching the approved design doc
+- [ ] `POST /wp-json/material-capture/v1/draft` implemented exactly per [docs/api-spec.md](docs/api-spec.md) (request/response shapes, status codes, error codes)
+- [ ] Application Password auth enforced (Basic Auth over HTTPS only) + `edit_posts` capability check in `permission_callback`
+- [ ] `素材候補` category auto-created on activation; clean `uninstall.php` removes it and any plugin options
+- [ ] `post_status` hardcoded to `draft` server-side regardless of client input
+- [ ] All input fields sanitized/validated server-side per [docs/security.md](docs/security.md)
+- [ ] PHPUnit suite for `Domain/` passes with no live WordPress instance required
+- [ ] PHP lint / WordPress Coding Standards (PHPCS) run clean locally
+- [ ] Manual smoke test (curl/Postman/HTTPie against LocalWP or Docker WP) covers the happy path and every documented error code
+- [ ] Any design deviation discovered during implementation is reflected back into `docs/phase2-wordpress-plugin-design.md` and `docs/api-spec.md` (if API-shaped) **before** the corresponding code is merged
 
 ## Phase 3 — Android Share Target app
 
-- [ ] Project skeleton: `presentation` / `domain` / `data` modules, Hilt wiring
-- [ ] Share Target intent filter (`ACTION_SEND`), extract `title` / `url` / shared text
+### Phase 3a — Detailed design
+
+**Definition of Done:**
+- [ ] `docs/phase3-android-app-design.md` written: module layout, class responsibilities, `Destination`/`CaptureItem` contracts, DI graph, screen states, error handling, test plan
+- [ ] Design reviewed and explicitly approved by the user — implementation does not begin until this box is checked
+
+### Phase 3b — Implementation (blocked until 3a is approved)
+
+**Definition of Done:**
+- [ ] Project skeleton: `presentation` / `domain` / `data` modules, Hilt wiring, matching the approved design doc
+- [ ] Share Target intent filter (`ACTION_SEND`), extracts `title` / `url` / shared text
 - [ ] Confirmation screen (Compose): editable title, URL, memo
-- [ ] `Destination` interface + `WordPressDestination` implementation
-- [ ] Application Password entry + `EncryptedSharedPreferences` storage
-- [ ] Unit tests for `domain` (no emulator required)
+- [ ] `Destination` interface + `WordPressDestination` implementation, calling `POST /draft` per [docs/api-spec.md](docs/api-spec.md)
+- [ ] Application Password entry + `EncryptedSharedPreferences` storage (never logged, never hardcoded)
+- [ ] Unit tests for `domain` pass with no emulator required
+- [ ] ktlint runs clean locally
+- [ ] Any design deviation is reflected back into the Phase 3 design doc (and `docs/architecture.md` if the layering changes) before the corresponding code is merged
 
 ## Phase 4 — Integration testing
 
-- [ ] Real Android device, USB debugging, real Chrome share → real (or LocalWP/Docker) WordPress instance
-- [ ] Error-path testing: no network, invalid credentials, WP unreachable, oversized payload
-- [ ] Confirm existing GitHub Actions pipeline still fires correctly off the created draft (no change expected, but verify the boundary)
+**Definition of Done:**
+- [ ] Real Android device (USB debugging) → real Chrome share → real or LocalWP/Docker WordPress instance, happy path confirmed end-to-end
+- [ ] Error-path testing covers: no network, invalid credentials, WordPress unreachable, oversized payload, duplicate submission
+- [ ] Confirm the existing GitHub Actions pipeline still fires correctly off the created draft (no change expected, but the boundary is explicitly verified, not assumed)
+- [ ] Any gap found here that implies a design or API change is written back into the relevant `docs/` file before being fixed in code
 
 ## Phase 5 — OSS launch
 
-- [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` filled in
-- [ ] Issue templates, PR template
-- [ ] GitHub Actions CI: PHP lint, ktlint, Markdown lint
-- [ ] README polish for external contributors
-- [ ] Public repository visibility
+**Definition of Done:**
+- [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` finalized for public contributors
+- [ ] Issue templates, PR template added under `.github/`
+- [ ] GitHub Actions CI: PHP lint, ktlint, Markdown lint, all green on `main`
+- [ ] README polished so an external contributor can onboard from it alone
+- [ ] Repository visibility confirmed public
 
 ## Phase 6+ — Platform expansion (post-launch)
 
