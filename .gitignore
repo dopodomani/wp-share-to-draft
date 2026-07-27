@@ -1,0 +1,24 @@
+# Android (android/)
+*.iml
+.gradle/
+/local.properties
+build/
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# PHP / Composer (wordpress-plugin/)
+vendor/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Environment / secrets — never commit credentials
+.env
+.env.*
+*.local
