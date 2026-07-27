@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<ruleset name="material-capture">
+    <description>WordPress Coding Standards for the material-capture plugin.</description>
+
+    <file>includes</file>
+    <file>material-capture.php</file>
+    <file>uninstall.php</file>
+
+    <arg value="sp"/>
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+
+    <config name="testVersion" value="8.1-"/>
+
+    <!--
+    This plugin's Domain/Application/Infrastructure layers are modern OOP PHP (readonly
+    value objects, camelCase properties, constructor promotion, short array syntax) per
+    the approved Phase 2 design (docs/phase2-wordpress-plugin-design.md), not the
+    procedural style the "WordPress" ruleset's style sniffs assume. We keep every
+    WordPress-specific *security* sniff (escaping, sanitization, nonce verification,
+    i18n, SQL) and exclude only the sniffs that would force procedural-style formatting
+    (tabs, array(), snake_case properties, WP-specific brace/whitespace placement) —
+    see docs/phase2-wordpress-plugin-design.md for the discussion.
+    -->
+    <rule ref="WordPress">
+        <exclude name="WordPress.Files.FileName"/>
+        <exclude name="WordPress.NamingConventions.ValidVariableName"/>
+        <exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+        <exclude name="WordPress.WhiteSpace"/>
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing"/>
+        <exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+        <exclude name="WordPress.PHP.YodaConditions"/>
+        <exclude name="Generic.WhiteSpace.DisallowSpaceIndent"/>
+        <exclude name="Generic.WhiteSpace.ArbitraryParenthesesSpacing"/>
+        <exclude name="Generic.Functions.OpeningFunctionBraceKernighanRitchie"/>
+        <exclude name="Generic.Classes.OpeningBraceSameLine"/>
+        <exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+        <exclude name="NormalizedArrays.Arrays.ArrayBraceSpacing"/>
+        <exclude name="PEAR.Functions.FunctionCallSignature"/>
+        <exclude name="Squiz.Functions.FunctionDeclarationArgumentSpacing"/>
+        <exclude name="Squiz.Commenting"/>
+    </rule>
+    <rule ref="PHPCompatibilityWP"/>
+</ruleset>

@@ -12,6 +12,8 @@ captures/
 
 # PHP / Composer (wordpress-plugin/)
 vendor/
+.phpunit.result.cache
+.phpcs-cache
 
 # OS / editor
 .DS_Store
