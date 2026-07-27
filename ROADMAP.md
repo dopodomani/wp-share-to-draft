@@ -86,6 +86,7 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 - [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` finalized for public contributors
 - [ ] Issue templates, PR template added under `.github/`
 - [ ] GitHub Actions CI: PHP lint, ktlint, Markdown lint, all green on `main`
+- [ ] Release packaging step produces a `material-capture/`-rooted zip from the `wordpress-plugin/` source (see [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md#release-packaging-source-layout-vs-installed-plugin-folder))
 - [ ] README polished so an external contributor can onboard from it alone
 - [ ] Repository visibility confirmed public
 
