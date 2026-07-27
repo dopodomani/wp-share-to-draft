@@ -381,6 +381,24 @@ Revision 1's plan stubbed `sanitize_text_field()` to return a canned value and t
 
 Unit tests above deliberately stop short of anything requiring a real WordPress runtime. Per the user's direction, integration tests — REST route registration, real Application Password authentication behavior, real WordPress capability checks, real `wp_insert_post`/sanitizer behavior — are **designed as their own reviewable document**. [ROADMAP.md](../ROADMAP.md) gates Phase 4 the same way as Phases 2/3: a **Phase 4a design sub-stage** produces `docs/phase4-integration-test-design.md` (test environment choice — e.g. `wp-env`/Docker —, scenarios, and pass/fail criteria) for review before any integration test is written or run.
 
+## PHPCS ruleset customization
+
+Discovered during implementation, reflected here before the corresponding code/config was committed (per this doc's own process rule): the official `WordPress` PHPCS ruleset is written for procedural WordPress-core-style code and, applied wholesale, forces `array()` over `[]`, tab indentation, WP-specific brace/whitespace placement, Yoda conditions, and — critically — **snake_case for every method and property name**, including `$postId`, `$editUrl`, `registerRoutes()`, etc. Renaming those to satisfy the sniff would contradict the camelCase, modern-PHP style this entire design (and its class signatures, already reviewed and approved) is written in.
+
+**Decision:** `wordpress-plugin/phpcs.xml.dist` keeps every WordPress-specific *security* sniff (escaping, sanitization enforcement, nonce verification, i18n, SQL) and excludes only the sniffs that are purely stylistic and procedural-style-specific:
+
+- `WordPress.NamingConventions.ValidVariableName` / `ValidFunctionName` (would force snake_case)
+- `WordPress.WhiteSpace`, `Generic.WhiteSpace.DisallowSpaceIndent`/`ArbitraryParenthesesSpacing`, `Generic.Classes.OpeningBraceSameLine`, `Generic.Functions.OpeningFunctionBraceKernighanRitchie`, `Generic.Formatting.MultipleStatementAlignment` (brace/indent/spacing placement)
+- `WordPress.PHP.YodaConditions` (stylistic preference, not a security control)
+- `Universal.Arrays.DisallowShortArraySyntax`, `NormalizedArrays.Arrays.ArrayBraceSpacing`, `WordPress.Arrays.ArrayDeclarationSpacing`/`MultipleStatementAlignment` (would force `array()` and WP-style alignment)
+- `PEAR.Functions.FunctionCallSignature`, `Squiz.Functions.FunctionDeclarationArgumentSpacing` (WP-style multi-line call/declaration formatting)
+- `Squiz.Commenting` (opinionated doc-block format/ordering beyond what this codebase's docblocks follow)
+
+Two additional, narrower exceptions, both suppressed inline with a `phpcs:ignore` comment and a reason rather than a ruleset-wide exclude:
+
+- `WordPress.Security.EscapeOutput.ExceptionNotEscaped` in `Infrastructure/WpPostRepository.php` (×2) — flags `WP_Error::get_error_message()` being passed into an internal exception constructor as if it were unescaped HTML output. This API is JSON-only (see [api-spec.md](api-spec.md)); the message never reaches an HTML context, so escaping it would be both unnecessary and semantically wrong. The sniff stays active project-wide for any code that actually echoes into HTML.
+- `WordPress.WP.AlternativeFunctions.parse_url_parse_url` in `Domain/DraftPayload.php` — recommends `wp_parse_url()` over `parse_url()`, but `Domain/` is deliberately WordPress-free (see [Layering](#layering)); importing a WordPress function here to satisfy a style sniff would undo the very separation this design revision exists to establish.
+
 ## Release packaging: source layout vs. installed plugin folder
 
 The repository keeps plugin source at `wordpress-plugin/` for consistency with the rest of this monorepo's top-level layout (`android/`, `docs/`, etc.). Installing that folder verbatim as `wp-content/plugins/wordpress-plugin/` would work but produces an unhelpful, generically-named plugin directory on a real WordPress install.
@@ -418,6 +436,9 @@ The repository keeps plugin source at `wordpress-plugin/` for consistency with t
 17. Response shape changed from `link`/`edit_link` to `post_id`/`edit_url`/`preview_url` (nullable), dropping the plain permalink field since a draft's permalink usually isn't a useful URL to a human.
 18. `post_author` is always explicitly set to the authenticated user on `wp_insert_post`.
 19. Source stays at `wordpress-plugin/` in the repo; Phase 5 packaging produces a `material-capture/`-rooted release zip.
+
+**2026-07-27 (round 3 — during Phase 2b implementation):**
+20. PHPCS ruleset customized to keep WordPress-specific security sniffs while excluding style/procedural-only sniffs that would force snake_case naming, `array()`, and WP-specific brace/whitespace conventions onto this deliberately modern-PHP-style codebase — see [PHPCS ruleset customization](#phpcs-ruleset-customization) above. Confirmed with the user before implementation proceeded.
 
 These are locked for Phase 2b implementation. Any further change must update this section (and `composer.json`'s `require.php` once written, for #1) before the corresponding code change.
 

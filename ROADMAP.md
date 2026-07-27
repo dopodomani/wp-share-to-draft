@@ -24,25 +24,25 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 
 ## Phase 2 — WordPress plugin
 
-### Phase 2a — Detailed design (current)
+### Phase 2a — Detailed design ✅ complete
 
 **Definition of Done:**
 - [x] [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md) written: concrete file/class layout, method signatures, validation rules, error mapping, activation/deactivation/uninstall behavior, test plan
-- [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
+- [x] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
 
-### Phase 2b — Implementation (blocked until 2a is approved)
+### Phase 2b — Implementation (current)
 
 **Definition of Done:**
-- [ ] `composer.json` + PSR-4 skeleton (`Rest/`, `Domain/`, `Support/`) matching the approved design doc
-- [ ] `POST /wp-json/material-capture/v1/draft` implemented exactly per [docs/api-spec.md](docs/api-spec.md) (request/response shapes, status codes, error codes)
-- [ ] Application Password auth enforced (Basic Auth over HTTPS only) + `edit_posts` capability check in `permission_callback`
-- [ ] `素材候補` category auto-created on activation; clean `uninstall.php` removes it and any plugin options
-- [ ] `post_status` hardcoded to `draft` server-side regardless of client input
-- [ ] All input fields sanitized/validated server-side per [docs/security.md](docs/security.md)
-- [ ] PHPUnit suite for `Domain/` passes with no live WordPress instance required
-- [ ] PHP lint / WordPress Coding Standards (PHPCS) run clean locally
-- [ ] Manual smoke test (curl/Postman/HTTPie against LocalWP or Docker WP) covers the happy path and every documented error code
-- [ ] Any design deviation discovered during implementation is reflected back into `docs/phase2-wordpress-plugin-design.md` and `docs/api-spec.md` (if API-shaped) **before** the corresponding code is merged
+- [x] `composer.json` + PSR-4 skeleton (`Rest/`, `Application/`, `Domain/`, `Infrastructure/`) matching the approved design doc
+- [x] `POST /wp-json/material-capture/v1/draft` implemented exactly per [docs/api-spec.md](docs/api-spec.md) (request/response shapes, status codes, error codes)
+- [x] Application Password auth enforced (Basic Auth over HTTPS only) + `edit_posts` capability check in `permission_callback`
+- [x] `素材候補` category auto-created on activation; clean `uninstall.php` removes only plugin options, never the category or posts
+- [x] `post_status` hardcoded to `draft` server-side regardless of client input
+- [x] All input fields sanitized/validated server-side per [docs/security.md](docs/security.md)
+- [x] PHPUnit suite passes with no live WordPress instance required (39 tests, 96 assertions)
+- [x] PHP lint / WordPress Coding Standards (PHPCS) run clean locally (with a documented, justified ruleset customization — see [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md#phpcs-ruleset-customization))
+- [ ] Manual smoke test (curl/Postman/HTTPie against LocalWP or Docker WP) covers the happy path and every documented error code — **blocked on a running WordPress instance being available; not yet done**
+- [x] Any design deviation discovered during implementation is reflected back into `docs/phase2-wordpress-plugin-design.md` and `docs/api-spec.md` (if API-shaped) **before** the corresponding code is merged
 
 ## Phase 3 — Android Share Target app
 
