@@ -66,6 +66,14 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 
 ## Phase 4 — Integration testing
 
+### Phase 4a — Integration test design
+
+**Definition of Done:**
+- [ ] `docs/phase4-integration-test-design.md` written: test environment choice (e.g. `wp-env`/Docker), scenario list (REST route registration, auth/authz against real capability checks, real `wp_insert_post` post creation, Android device → real Chrome share → real WP), and explicit pass/fail criteria per scenario
+- [ ] Design reviewed and explicitly approved by the user — integration tests are not written or run until this box is checked
+
+### Phase 4b — Execution (blocked until 4a is approved)
+
 **Definition of Done:**
 - [ ] Real Android device (USB debugging) → real Chrome share → real or LocalWP/Docker WordPress instance, happy path confirmed end-to-end
 - [ ] Error-path testing covers: no network, invalid credentials, WordPress unreachable, oversized payload, duplicate submission
