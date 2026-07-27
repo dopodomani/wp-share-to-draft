@@ -46,11 +46,11 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 
 ## Phase 3 — Android Share Target app
 
-### Phase 3a — Detailed design
+### Phase 3a — Detailed design (current)
 
 **Definition of Done:**
-- [ ] `docs/phase3-android-app-design.md` written: module layout, class responsibilities, `Destination`/`CaptureItem` contracts, DI graph, screen states, error handling, test plan
-- [ ] Design reviewed and explicitly approved by the user — implementation does not begin until this box is checked
+- [x] [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md) written: screen transitions, Share Target flow, ViewModel/Repository(Destination) construction, Retrofit API, Hilt DI, error handling, Loading/Success/Error state transitions, Android test strategy
+- [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
 
 ### Phase 3b — Implementation (blocked until 3a is approved)
 

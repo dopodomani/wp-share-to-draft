@@ -53,7 +53,8 @@ Full diagrams and layer breakdown: [docs/architecture.md](docs/architecture.md)
 API contract: [docs/api-spec.md](docs/api-spec.md)
 Why these choices: [docs/tech-decisions.md](docs/tech-decisions.md)
 Threat model & auth rationale: [docs/security.md](docs/security.md)
-WordPress plugin detailed design (Phase 2, under review): [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md)
+WordPress plugin detailed design (Phase 2): [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md)
+Android app detailed design (Phase 3, under review): [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md)
 
 ## Repository layout
 
