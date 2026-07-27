@@ -2,7 +2,7 @@
 
 > Capture anything you read on your phone into a WordPress draft, tagged `[INBOX]`, in two taps — the first step of an AI-assisted news-to-article pipeline.
 
-**Status:** 🚧 Design phase (Phase 1). No implementation yet — see [ROADMAP.md](ROADMAP.md).
+**Status:** 🚧 Phase 2 (WordPress plugin implemented, pending a real-WordPress smoke test) / Phase 3a (Android design approved, implementation starting) — see [ROADMAP.md](ROADMAP.md).
 
 [日本語版はこちら](#日本語)
 
@@ -54,7 +54,10 @@ API contract: [docs/api-spec.md](docs/api-spec.md)
 Why these choices: [docs/tech-decisions.md](docs/tech-decisions.md)
 Threat model & auth rationale: [docs/security.md](docs/security.md)
 WordPress plugin detailed design (Phase 2): [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md)
-Android app detailed design (Phase 3, under review): [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md)
+WordPress plugin smoke test guide (Phase 2b): [docs/phase2-smoke-test-guide.md](docs/phase2-smoke-test-guide.md)
+Android app detailed design (Phase 3, approved): [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md)
+Development environment & multi-machine workflow: [docs/development.md](docs/development.md)
+Claude Code / Codex roles: [docs/ai-development.md](docs/ai-development.md)
 
 ## Repository layout
 
@@ -66,28 +69,41 @@ wp-share-to-draft/
 ├── CONTRIBUTING.md
 ├── ROADMAP.md
 ├── docs/
-│   ├── architecture.md        # diagrams, layering, extension points
-│   ├── api-spec.md            # REST API contract (material-capture/v1)
-│   ├── tech-decisions.md      # ADR-style rationale for every major choice
-│   └── security.md            # auth method comparison, threat model, hardening
+│   ├── architecture.md                    # diagrams, layering, extension points
+│   ├── api-spec.md                        # REST API contract (material-capture/v1)
+│   ├── tech-decisions.md                  # ADR-style rationale for every major choice
+│   ├── security.md                        # auth method comparison, threat model, hardening
+│   ├── phase2-wordpress-plugin-design.md  # WordPress plugin detailed design
+│   ├── phase2-smoke-test-guide.md         # manual smoke test procedure + checklist
+│   ├── phase2-smoke-test-results.md       # dated smoke test run records
+│   ├── phase3-android-app-design.md       # Android app detailed design
+│   ├── development.md                     # main/secondary PC roles, branching, CI
+│   └── ai-development.md                  # Claude Code / Codex role division
 ├── android/                   # Kotlin app (Phase 3)
 │   ├── app/
 │   │   └── src/main/kotlin/.../
-│   │       ├── presentation/  # Share Target activity, confirm screen (Compose)
-│   │       ├── domain/        # use cases, Destination interface, models
-│   │       └── data/          # WordPress destination impl, DI modules, DTOs
+│   │       ├── presentation/  # ShareReceiverActivity, IntentParser, Compose screens, ViewModels
+│   │       ├── domain/        # CaptureItem, Destination/SettingsRepository interfaces, use cases
+│   │       └── data/          # WordPressDestination, DI modules, DTOs, EncryptedSettingsRepository
 │   └── build.gradle.kts
-├── wordpress-plugin/          # PHP plugin (Phase 2)
+├── wordpress-plugin/          # PHP plugin (Phase 2, implemented)
 │   ├── material-capture.php   # plugin bootstrap
 │   ├── includes/
-│   │   ├── Rest/              # REST controller(s)
-│   │   ├── Domain/             # draft creation service, value objects
-│   │   └── Support/            # sanitization, auth helpers
+│   │   ├── Rest/              # REST controller
+│   │   ├── Application/       # use case, ports, DraftPayloadFactory
+│   │   ├── Domain/             # dependency-free value objects, exceptions
+│   │   └── Infrastructure/     # WordPress adapters (post repo, sanitizer, body template)
 │   ├── tests/
 │   └── composer.json
 ├── examples/                  # sample requests, Postman/HTTPie collections
 └── .github/                   # issue/PR templates, CI workflows (added Phase 2+)
 ```
+
+## Development environment
+
+This project is developed across a **main PC** (full Android Studio/SDK/emulator, for anything Android-SDK-dependent) and a **secondary PC** (JDK + Gradle only, for `domain`/`application`-layer work on both the Android and WordPress sides, which needs no Android SDK). Two AI coding assistants — Claude Code (architecture/multi-file/docs coherence) and Codex (scoped review/fixes/CI triage) — share the work under an explicit division of labor.
+
+Full details: [docs/development.md](docs/development.md) (machine roles, git branching, PC-switching procedure, CI's role, what does/doesn't need the Android SDK) and [docs/ai-development.md](docs/ai-development.md) (Claude Code vs. Codex responsibilities and coordination rules).
 
 ## Roadmap (short version)
 
@@ -116,7 +132,7 @@ MIT — see [LICENSE](LICENSE).
 
 Android ChromeなどでWebページを「共有」した2タップで、WordPressに `[INBOX]` 付きの下書きを自動作成するプロジェクトです。
 
-**現在のフェーズ:** 設計フェーズ（Phase 1）。実装はまだ行っていません。
+**現在のフェーズ:** WordPressプラグイン実装済み（実WordPress環境でのスモークテスト待ち）、Android設計承認済み（Phase 3b実装着手）。
 
 **やること:** Android共有 → 確認画面 → WordPress下書き作成、まで。
 **やらないこと:** それ以降（GitHub Actions以降の素材ノート生成・Codex・記事作成）は既存の運用のまま変更しません。
@@ -126,6 +142,9 @@ Android ChromeなどでWebページを「共有」した2タップで、WordPres
 - API仕様: [docs/api-spec.md](docs/api-spec.md)
 - 技術選定理由: [docs/tech-decisions.md](docs/tech-decisions.md)
 - セキュリティ方針: [docs/security.md](docs/security.md)
+- WordPressプラグイン設計: [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md)
+- Androidアプリ設計: [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md)
+- 開発環境（メイン/サブPC、Claude Code/Codex運用）: [docs/development.md](docs/development.md) / [docs/ai-development.md](docs/ai-development.md)
 - ロードマップ: [ROADMAP.md](ROADMAP.md)
 
 将来的にはAndroid専用に留まらず、PWAやWebhookなど複数の入力元・送信先（WordPress以外にGitHub、Notion、Slackなど）に対応できる、AI時代のニュース収集基盤としての拡張を見据えています。
