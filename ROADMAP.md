@@ -65,8 +65,9 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 - [x] MockWebServer-based `data` layer tests — **verified**: `WordPressDestinationTest`, `MaterialCaptureErrorMapperTest` all pass
 - [x] ktlint runs clean locally — **verified for both modules**: `:core:ktlintCheck` and `:app:ktlintCheck` both pass in this environment (ktlint itself needs no Android SDK, unlike actual compilation)
 - [x] Any design deviation is reflected back into the Phase 3 design doc (and `docs/architecture.md` if the layering changes) before the corresponding code is merged — the `:core`/`:app` Gradle module split was added to the design doc before any `build.gradle.kts` was written
+- [x] Android CI added ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml)) to close the verification gap the secondary PC can't: `:core:test`, `:core:ktlintCheck`, `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` all run on a real Android SDK on every push/PR — see [docs/development.md](docs/development.md#cis-role). **Pushed on a feature branch, not yet merged to `main` — first actual green run on GitHub Actions is still pending.**
 
-**Confirmed boundary in this environment:** `:app:compileDebugKotlin` fails with `SDK location not found` — exactly the expected, documented limitation (see [docs/development.md](docs/development.md)), not a bug. `:app`'s Kotlin/Compose/Hilt code, `IntentParserTest`, `ConfirmDraftViewModelTest`, and `EncryptedSettingsRepositoryTest` are all written but **require the main PC or CI to actually compile and run**.
+**Confirmed boundary in this environment:** `:app:compileDebugKotlin` fails with `SDK location not found` — exactly the expected, documented limitation (see [docs/development.md](docs/development.md)), not a bug. `:app`'s Kotlin/Compose/Hilt code, `IntentParserTest`, `ConfirmDraftViewModelTest`, and `EncryptedSettingsRepositoryTest` are all written and now have a CI path to actually run, but that first run hasn't happened yet (pending merge/push of the CI branch).
 
 ## Phase 4 — Integration testing
 
@@ -89,7 +90,7 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 **Definition of Done:**
 - [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` finalized for public contributors
 - [ ] Issue templates, PR template added under `.github/`
-- [ ] GitHub Actions CI: PHP lint, ktlint, Markdown lint, all green on `main`
+- [ ] GitHub Actions CI: PHP lint (PHPUnit/PHPCS), Markdown lint, all green on `main` — Android CI ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml)) was already added during Phase 3b; this item is just the remaining WordPress/docs coverage
 - [ ] Release packaging step produces a `material-capture/`-rooted zip from the `wordpress-plugin/` source (see [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md#release-packaging-source-layout-vs-installed-plugin-folder))
 - [ ] README polished so an external contributor can onboard from it alone
 - [ ] Repository visibility confirmed public

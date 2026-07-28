@@ -101,7 +101,7 @@ wp-share-to-draft/
 
 ## Development environment
 
-This project is developed across a **main PC** (full Android Studio/SDK/emulator, for anything Android-SDK-dependent) and a **secondary PC** (JDK + Gradle only, for `domain`/`application`-layer work on both the Android and WordPress sides, which needs no Android SDK). Two AI coding assistants — Claude Code (architecture/multi-file/docs coherence) and Codex (scoped review/fixes/CI triage) — share the work under an explicit division of labor.
+This project is developed across a **main PC** (full Android Studio/SDK/emulator, for anything Android-SDK-dependent) and a **secondary PC** (JDK + Gradle only, for `domain`/`application`-layer work on both the Android and WordPress sides, which needs no Android SDK). Two AI coding assistants — Claude Code (architecture/multi-file/docs coherence) and Codex (scoped review/fixes/CI triage) — share the work under an explicit division of labor. [Android CI](.github/workflows/android-ci.yml) fills the gap the secondary PC can't: it builds `:app` on a real Android SDK on every push/PR.
 
 Full details: [docs/development.md](docs/development.md) (machine roles, git branching, PC-switching procedure, CI's role, what does/doesn't need the Android SDK) and [docs/ai-development.md](docs/ai-development.md) (Claude Code vs. Codex responsibilities and coordination rules).
 
