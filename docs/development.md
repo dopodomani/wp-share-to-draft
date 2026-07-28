@@ -37,9 +37,8 @@ This table is the general policy; [docs/phase3-android-app-design.md §9](phase3
 | Work | Needs Android SDK? | Where it can run |
 |---|---|---|
 | WordPress plugin (all of it — PHP has no Android dependency) | No | Either PC |
-| Android `domain`/`application` layer (models, use cases, `Destination`/`SettingsRepository` interfaces) | No | Either PC |
-| Android ViewModels + their unit tests | No | Either PC |
-| Android `data` layer (Retrofit, DTOs, error mapping) + MockWebServer tests | No | Either PC |
+| Android `domain`/`data` layer (`:core` module — models, use cases, `Destination`/`SettingsRepository` interfaces, Retrofit/DTOs/error mapping) | No | Either PC |
+| Android ViewModels + their unit tests | **Yes to build/run** (ViewModels live in `:app` for Hilt's `@HiltViewModel`) — but the test logic itself is Android-free and can be written/reviewed on either PC | Main PC or CI to actually run |
 | `IntentParser` unit tests (Robolectric — needs `android.content.Intent` on the classpath) | **Yes** | Main PC or CI |
 | `data/local` (`EncryptedSettingsRepository`) Robolectric tests | **Yes** | Main PC or CI |
 | Compose UI, `AndroidManifest.xml`/intent-filter, Hilt `@AndroidEntryPoint` wiring — compiling the app module at all | **Yes** | Main PC or CI |

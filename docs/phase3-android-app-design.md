@@ -15,6 +15,38 @@
 | DI | Hilt (per [docs/tech-decisions.md](tech-decisions.md#6-dependency-injection-hilt-android-manual-constructor-injection-php)) |
 | Networking | Retrofit + OkHttp (per [docs/tech-decisions.md](tech-decisions.md#7-networking-retrofit--okhttp-android)) |
 
+## Gradle module layout (addendum, Phase 3b implementation start)
+
+**Why this is here:** [§9](#9-android-test-strategy)'s SDK column and [docs/development.md](development.md#what-works-with-and-without-the-android-sdk) promise that `domain` and most of `data`/`presentation` build and test with just a JDK, no Android SDK. That promise only holds if those packages live in a Gradle module that doesn't apply the Android Gradle Plugin — package-level discipline alone ("this file just happens not to import Android APIs") isn't enough, because a single `com.android.application`-plugin module requires `compileSdk`/the Android SDK to build or run *any* test in it, even a test with zero Android imports. This is a build-topology decision the original design didn't spell out at the Gradle-module level, so it's recorded here before any `build.gradle.kts` is written, per this project's docs-before-code rule.
+
+Three Gradle modules:
+
+```
+android/
+├── settings.gradle.kts
+├── build.gradle.kts               # root: plugin versions only
+├── core/                          # plain Kotlin/JVM module — org.jetbrains.kotlin.jvm only
+│   ├── build.gradle.kts
+│   └── src/
+│       ├── main/kotlin/.../
+│       │   ├── domain/            # CaptureItem, DraftResult, Destination, SettingsRepository, CaptureError, use cases
+│       │   └── data/              # MaterialCaptureApi, DTOs, WordPressDestination, MaterialCaptureErrorMapper, AuthInterceptor
+│       │                          # (Retrofit/OkHttp/kotlinx.serialization are plain JVM libraries — no Android SDK needed)
+│       └── test/kotlin/.../       # JUnit5 + MockWebServer + Mockery-equivalent fakes — runs with `gradle :core:test`, no SDK
+└── app/                           # Android application module — com.android.application + Hilt + Compose
+    ├── build.gradle.kts           # depends on :core
+    └── src/
+        ├── main/kotlin/.../
+        │   └── presentation/      # ShareReceiverActivity, IntentParser, Compose screens, ViewModels, Hilt modules
+        │       └── local/         # EncryptedSettingsRepository (implements core's SettingsRepository)
+        ├── test/kotlin/.../       # ViewModel tests (no SDK) + IntentParserTest/EncryptedSettingsRepositoryTest (Robolectric, needs SDK)
+        └── androidTest/           # Phase 4 territory
+```
+
+- **`:core`** has zero Android Gradle Plugin, zero `android.*` imports, zero `androidx.*` imports. It's where `CaptureItem`, `Destination`, `SettingsRepository` (the interface), `CaptureError`, the use cases, and — notably — the entire `data` layer's Retrofit/DTO/error-mapping code live, since none of that touches Android APIs (Retrofit and OkHttp are plain JVM libraries). `gradle :core:test` runs everywhere, including this environment, with just a JDK.
+- **`:app`** depends on `:core` and is the only module with the Android Gradle Plugin applied. It holds `ShareReceiverActivity`, `IntentParser` (touches `android.content.Intent`), Compose screens, ViewModels (technically Android-SDK-free themselves via `androidx.lifecycle:lifecycle-viewmodel-ktx`'s plain-JVM-compatible artifact, but co-located with `:app` for simplicity since Hilt's `@HiltViewModel` wiring is Android-specific), `EncryptedSettingsRepository` (needs `Context`/`androidx.security.crypto`), and all Hilt DI modules. Building or testing anything in `:app` needs the Android SDK.
+- ViewModels are placed in `:app` rather than `:core` because Hilt's Android integration (`@HiltViewModel`, `hiltViewModel()` in Compose navigation) is itself Android-SDK-dependent even though the ViewModel class body has no Android imports — splitting a single class's *tests* across modules by import-scanning isn't worth the complexity for this project's size. Their tests are still plain-JVM-runnable (see [§9](#9-android-test-strategy)); it's specifically the *module* they're compiled in that needs the SDK, which matters for `./gradlew :app:test` but not for reasoning about the tests' own logic.
+
 ## 1. Screen transition diagram
 
 One Activity (`ShareReceiverActivity`), hosting two Compose destinations via Navigation Compose. There is no separate "main app" Activity — this app is share-target-first, per the original design brief — but the same Activity also answers a normal launcher intent so a user can reach Settings without sharing anything first.
@@ -423,7 +455,7 @@ Mirrors the split already established for the WordPress plugin ([docs/phase2-wor
 |---|---|---|---|---|
 | `domain` (models, `Destination`/`SettingsRepository` interfaces, use cases) | JVM unit test | **No** — plain JDK + Gradle | JUnit5 + Kotlin, fakes (not mocks — the interfaces are small enough that hand-written fakes are clearer than a mocking DSL here) | `SubmitCaptureUseCase` calls `Destination.send()` with the item unchanged; a `Destination` failure propagates as-is (no swallowed/re-wrapped errors) |
 | `IntentParser` | JVM unit test — **`IntentParserTest`**, confirmed in review | **No** — `android.content.Intent` and `android.util.Patterns` are part of the Android *framework* jar, which Robolectric (or a lightweight stub jar) makes usable without a device, but Robolectric itself still needs the Android SDK on the classpath at build time. So this one row is **the exception**: it needs the Android SDK to compile/run even though it's conceptually simple, unavoidable since it touches `Intent` directly | JUnit5 + Robolectric | Every row of §2's extraction table, across a matrix of realistic Chrome share-intent shapes (subject present/absent, URL embedded in text vs. absent entirely, extra whitespace); confirms `IntentParser` never throws for "no URL found" |
-| `presentation` (ViewModels) | JVM unit test | **No** — plain JDK + Gradle | JUnit5, `kotlinx-coroutines-test` (`runTest`, `StandardTestDispatcher`), a fake `SubmitCaptureUseCase`/`SettingsRepository` | Every transition in §8's diagram, including the "no-op while Loading" invariant; `StateFlow` emissions asserted via Turbine |
+| `presentation` (ViewModels) | JVM unit test | **Yes to build/run — ViewModels live in `:app` (Hilt's `@HiltViewModel` needs the Android Gradle Plugin), per [Gradle module layout](#gradle-module-layout-addendum-phase-3b-implementation-start)** — but the test *logic* itself has zero Android imports, so it can be written and reasoned about anywhere; it just can't execute in an SDK-less environment | JUnit5, `kotlinx-coroutines-test` (`runTest`, `StandardTestDispatcher`), a fake `SubmitCaptureUseCase`/`SettingsRepository` | Every transition in §8's diagram, including the "no-op while Loading" invariant; `StateFlow` emissions asserted via Turbine |
 | `data` (`WordPressDestination`, DTO mapping, `MaterialCaptureErrorMapper`) | JVM unit test, still no live WordPress | **No** — plain JDK + Gradle | JUnit5 + **MockWebServer** (OkHttp's own test server — an in-process fake HTTP server, not a live WordPress instance, so this still runs with no network/device) | Request is built with the correct method/headers/body for a given `CaptureItem`; each documented response (201 and every error status/code in §7's table) maps to the correct domain result; `MockWebServer.enableTls()` misconfiguration and a forced socket timeout confirm `fromException` picks `SslFailure`/`Timeout` correctly, not just a generic bucket |
 | `data/local` (`EncryptedSettingsRepository`) | JVM/Robolectric unit test | **Yes** — Robolectric needs the Android SDK on the build classpath | Robolectric (to get a real `Context`/`SharedPreferences` without a device) | Save-then-read round-trips correctly; nothing under test ever calls `Log.*` with a settings value (a simple test double asserting no log calls, or a lint rule — exact mechanism TBD at implementation time) |
 | `presentation` UI (Compose screens), Hilt wiring, `AndroidManifest.xml`/intent-filter correctness | Compile + instrumented/manual check | **Yes** — Android Gradle Plugin requires `compileSdk` | Compose UI testing / manual on emulator or device | Deferred to **Phase 4a/4b** for the manual/instrumented pass; the *compile* step (does the module build at all) still runs in Phase 3b, but only where the Android SDK is available (main PC or CI — see [docs/development.md](development.md)) |
