@@ -88,8 +88,8 @@ GitHub Actions is the environment that compensates for the secondary PC lacking 
 
 1. Checks out the repository
 2. Sets up JDK 17 (Temurin)
-3. Sets up the Android SDK (platform/build-tools only — no emulator, since this workflow runs no instrumented tests)
-4. Validates the committed Gradle wrapper jar against Gradle's known-good checksums
+3. Sets up the Android SDK, then explicitly installs `platforms;android-35` and `build-tools;35.0.0` to match `compileSdk`/`targetSdk` in `android/app/build.gradle.kts` — not left to AGP's lazy auto-download, so the exact packages needed are guaranteed up front rather than depending on network timing mid-build
+4. Validates the committed Gradle wrapper jar against Gradle's known-good checksums — kept as its own explicit step even though `gradle/actions/setup-gradle` (next) also runs; the two check different things (this repo's committed wrapper jar vs. the Gradle distribution `setup-gradle` itself downloads), so it isn't true redundancy, and either way it's cheap enough to keep for a clear, single-purpose pass/fail signal in the log
 5. Sets up Gradle with dependency/build caching
 6. `./gradlew :core:test` — `:core` unit tests
 7. `./gradlew :core:ktlintCheck`

@@ -9,6 +9,12 @@ name: Android CI
 # behavior, and real WordPress smoke testing -- those are Phase 4 (see
 # docs/phase2-smoke-test-guide.md and ROADMAP.md's Phase 4 gate), not this workflow.
 
+# Path filters are scoped to everything that can affect the Android build: all of
+# android/** (GitHub Actions' glob matches dotfiles too, so this also covers
+# android/.editorconfig and android/gradlew, not just *.kt/*.kts) plus this workflow
+# file itself. Nothing Android-relevant lives outside android/ in this repo, so this is
+# the complete set, not a partial one -- revisit if that ever changes (e.g. a root-level
+# version catalog).
 on:
   push:
     branches: [main]
@@ -47,9 +53,17 @@ jobs:
 
       # 3. Android SDK -- platform/build-tools only, no emulator/system-image (this
       # workflow never runs instrumented tests). No secrets involved: this is a public
-      # SDK download, not a signed/licensed credential.
+      # SDK download, not a signed/licensed credential. android-actions/setup-android
+      # installs the cmdline-tools and accepts licenses, which would let AGP
+      # lazily auto-download compileSdk 35's platform/build-tools on first use --
+      # but that lazy path depends on network timing during the build itself, so the
+      # exact packages this project needs (matching android/app/build.gradle.kts'
+      # compileSdk/targetSdk = 35) are installed explicitly and up front instead.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install required Android SDK packages (compileSdk 35)
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       # Fixes the executable bit lost when gradlew was first committed from Windows,
       # and the eol=lf .gitattributes rule keeps the shebang line itself intact --
@@ -60,6 +74,16 @@ jobs:
 
       # 4. Verify the committed gradle-wrapper.jar matches Gradle's known-good checksums,
       # before trusting it to execute anything.
+      #
+      # Intentionally kept alongside gradle/actions/setup-gradle below rather than
+      # relying on that action alone: wrapper-validation is a small, fast,
+      # single-purpose security check with its own clearly-labeled step in the Actions
+      # log, so a failure here is unambiguous and instant. setup-gradle's own
+      # provenance/verification behavior is about the Gradle *distribution* it
+      # downloads, not a guarantee about this repo's committed wrapper jar being
+      # unmodified -- the two checks aren't actually the same thing, so this isn't
+      # redundant, but even if a future setup-gradle version did overlap, this step
+      # is cheap enough to keep on purpose for the explicit, visible pass/fail signal.
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
