@@ -13,6 +13,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Uses a plain (non-encrypted) SharedPreferences from Robolectric -- this class only
@@ -20,8 +21,13 @@ import org.robolectric.RobolectricTestRunner
  * the Keystore actually being involved. Real encryption-at-rest is WordPress/Android core
  * behavior, not this class's own logic -- see the same unit-vs-integration split applied
  * to the WordPress plugin's InputSanitizer (docs/phase2-wordpress-plugin-design.md).
+ *
+ * Pinned to API 34 via @Config: Robolectric 4.13 (this project's version) doesn't yet
+ * support API 35, which this app's compileSdk/targetSdk targets -- see the same note on
+ * IntentParserTest.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class EncryptedSettingsRepositoryTest {
     private lateinit var prefs: SharedPreferences
     private lateinit var repository: EncryptedSettingsRepository
