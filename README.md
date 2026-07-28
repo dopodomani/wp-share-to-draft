@@ -56,6 +56,8 @@ Threat model & auth rationale: [docs/security.md](docs/security.md)
 WordPress plugin detailed design (Phase 2): [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md)
 WordPress plugin smoke test guide (Phase 2b): [docs/phase2-smoke-test-guide.md](docs/phase2-smoke-test-guide.md)
 Android app detailed design (Phase 3, approved): [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md)
+Android app smoke test guide (Phase 3b): [docs/phase3-android-smoke-test-guide.md](docs/phase3-android-smoke-test-guide.md)
+Testing strategy overview (both sides, all layers): [docs/testing.md](docs/testing.md)
 Development environment & multi-machine workflow: [docs/development.md](docs/development.md)
 Claude Code / Codex roles: [docs/ai-development.md](docs/ai-development.md)
 
@@ -77,6 +79,9 @@ wp-share-to-draft/
 │   ├── phase2-smoke-test-guide.md         # manual smoke test procedure + checklist
 │   ├── phase2-smoke-test-results.md       # dated smoke test run records
 │   ├── phase3-android-app-design.md       # Android app detailed design
+│   ├── phase3-android-smoke-test-guide.md # manual smoke test procedure + checklist (main PC)
+│   ├── phase3-android-smoke-test-results.md # dated smoke test run records
+│   ├── testing.md                         # testing strategy overview (both sides, all layers)
 │   ├── development.md                     # main/secondary PC roles, branching, CI
 │   └── ai-development.md                  # Claude Code / Codex role division
 ├── android/                   # Kotlin app (Phase 3)
