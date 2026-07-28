@@ -1,0 +1,111 @@
+name: Android CI
+
+# Supplements Phase 3b build verification for the secondary PC (no Android SDK) --
+# see docs/development.md#cis-role. This is the environment that actually has the
+# Android SDK, so it's what proves :app builds at all, not just that its Kotlin syntax
+# and style are clean (which ktlint alone can already confirm without the SDK).
+#
+# Deliberately out of scope here: emulator/instrumented tests, real-device Share Target
+# behavior, and real WordPress smoke testing -- those are Phase 4 (see
+# docs/phase2-smoke-test-guide.md and ROADMAP.md's Phase 4 gate), not this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-ci.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-ci.yml"
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test (Android SDK, Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. JDK -- 17, matching this project's compileOptions/kotlinOptions target
+      # (see android/core/build.gradle.kts, android/app/build.gradle.kts) and AGP 8.5's
+      # recommended baseline.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 3. Android SDK -- platform/build-tools only, no emulator/system-image (this
+      # workflow never runs instrumented tests). No secrets involved: this is a public
+      # SDK download, not a signed/licensed credential.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # Fixes the executable bit lost when gradlew was first committed from Windows,
+      # and the eol=lf .gitattributes rule keeps the shebang line itself intact --
+      # belt-and-suspenders so a future re-commit from Windows can't silently break this.
+      - name: Ensure gradlew is executable
+        working-directory: android
+        run: chmod +x ./gradlew
+
+      # 4. Verify the committed gradle-wrapper.jar matches Gradle's known-good checksums,
+      # before trusting it to execute anything.
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      # 5. Gradle cache (dependencies + build cache), handled by the official action --
+      # also transparently uses the validated wrapper for every ./gradlew call below.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
+      # 6. :core unit tests -- plain JVM module, no Android SDK actually required for
+      # this step, but it runs here too so the whole matrix of checks lives in one place.
+      - name: ":core unit tests"
+        working-directory: android
+        run: ./gradlew :core:test --no-daemon
+
+      # 7. :core ktlint
+      - name: ":core ktlint"
+        working-directory: android
+        run: ./gradlew :core:ktlintCheck --no-daemon
+
+      # 8. :app JVM unit tests (ViewModels, plus Robolectric-based IntentParserTest /
+      # EncryptedSettingsRepositoryTest -- these need the Android SDK, which is why this
+      # step could not run on the secondary PC).
+      - name: ":app unit tests"
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      # 9. :app Android Lint
+      - name: ":app Android Lint"
+        working-directory: android
+        run: ./gradlew :app:lintDebug --no-daemon
+
+      # 10. :app assembleDebug -- the actual compile-and-package step that needs the
+      # Android SDK; this is what could not be verified on the secondary PC.
+      - name: ":app assembleDebug"
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            android/core/build/reports/tests
+            android/app/build/reports/tests
+            android/app/build/reports/lint-results-debug.html
+          retention-days: 14
