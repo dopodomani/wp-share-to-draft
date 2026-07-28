@@ -52,17 +52,21 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 - [x] [docs/phase3-android-app-design.md](docs/phase3-android-app-design.md) written: screen transitions, Share Target flow, ViewModel/Repository(Destination) construction, Retrofit API, Hilt DI, error handling, Loading/Success/Error state transitions, Android test strategy
 - [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
 
-### Phase 3b — Implementation (blocked until 3a is approved)
+### Phase 3b — Implementation (current)
 
 **Definition of Done:**
-- [ ] Project skeleton: `presentation` / `domain` / `data` modules, Hilt wiring, matching the approved design doc
-- [ ] Share Target intent filter (`ACTION_SEND`), extracts `title` / `url` / shared text
-- [ ] Confirmation screen (Compose): editable title, URL, memo
-- [ ] `Destination` interface + `WordPressDestination` implementation, calling `POST /draft` per [docs/api-spec.md](docs/api-spec.md)
-- [ ] Application Password entry + `EncryptedSharedPreferences` storage (never logged, never hardcoded)
-- [ ] Unit tests for `domain` pass with no emulator required
-- [ ] ktlint runs clean locally
-- [ ] Any design deviation is reflected back into the Phase 3 design doc (and `docs/architecture.md` if the layering changes) before the corresponding code is merged
+- [x] Project skeleton: `:core` (domain/data, plain Kotlin/JVM) + `:app` (presentation, Android) Gradle modules, Hilt wiring — matches the approved design doc plus the Gradle-module-layout addendum added at implementation start
+- [x] Share Target intent filter (`ACTION_SEND`), extracts `title` / `url` / shared text — `IntentParser` + `AndroidManifest.xml`. **Written, not yet verified** (needs the Android SDK — see below)
+- [x] Confirmation screen (Compose): editable title, URL, memo — `ConfirmDraftScreen`. **Written, not yet verified**
+- [x] `Destination` interface + `WordPressDestination` implementation, calling `POST /draft` per [docs/api-spec.md](docs/api-spec.md) — **verified**: `gradle :core:test` passes in this environment (17 tests, incl. MockWebServer-based `WordPressDestinationTest`)
+- [x] Application Password entry + `EncryptedSharedPreferences` storage (never logged, never hardcoded) — `SettingsScreen` + `EncryptedSettingsRepository`. **Written, not yet verified** (Robolectric test written but needs the Android SDK to run)
+- [x] Unit tests for `domain` pass with no emulator required — **verified** in this environment (no Android SDK needed for `:core`)
+- [x] `IntentParserTest` implemented (confirmed as a Phase 3a requirement) — **written, not yet run** (Robolectric needs the Android SDK; this is the one documented exception to "the secondary PC can run everything," see [docs/phase3-android-app-design.md §9](docs/phase3-android-app-design.md#9-android-test-strategy))
+- [x] MockWebServer-based `data` layer tests — **verified**: `WordPressDestinationTest`, `MaterialCaptureErrorMapperTest` all pass
+- [x] ktlint runs clean locally — **verified for both modules**: `:core:ktlintCheck` and `:app:ktlintCheck` both pass in this environment (ktlint itself needs no Android SDK, unlike actual compilation)
+- [x] Any design deviation is reflected back into the Phase 3 design doc (and `docs/architecture.md` if the layering changes) before the corresponding code is merged — the `:core`/`:app` Gradle module split was added to the design doc before any `build.gradle.kts` was written
+
+**Confirmed boundary in this environment:** `:app:compileDebugKotlin` fails with `SDK location not found` — exactly the expected, documented limitation (see [docs/development.md](docs/development.md)), not a bug. `:app`'s Kotlin/Compose/Hilt code, `IntentParserTest`, `ConfirmDraftViewModelTest`, and `EncryptedSettingsRepositoryTest` are all written but **require the main PC or CI to actually compile and run**.
 
 ## Phase 4 — Integration testing
 

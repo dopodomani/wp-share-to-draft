@@ -16,6 +16,7 @@ All notable changes to this project are documented here. Format loosely follows 
 - Phase 3a detailed design for the Android Share Target app (docs/phase3-android-app-design.md), approved.
 - ADR #10: kotlinx.serialization as the Android JSON library (docs/tech-decisions.md).
 - Development environment docs: main/secondary PC roles, git branching, CI role, Android-SDK-dependency matrix (docs/development.md); Claude Code/Codex role division (docs/ai-development.md).
+- Android app implemented in two Gradle modules: `:core` (domain + data — CaptureItem, Destination, SettingsRepository, CaptureError, SubmitCaptureUseCase, Retrofit API/DTOs, WordPressDestination, MaterialCaptureErrorMapper, AuthInterceptor) and `:app` (presentation — IntentParser, ConfirmDraftViewModel/SettingsViewModel, Compose screens, ShareReceiverActivity, Hilt DI, EncryptedSettingsRepository). `:core` verified in this environment (17 tests, ktlint clean); `:app` requires the Android SDK to build (main PC/CI) — see docs/development.md.
 
 ### Changed
 - Phase 2 design revised after design review: split `Support/` into `Application/` (orchestration + ports) and `Infrastructure/` (WordPress adapters); made `Domain/DraftPayload` fully dependency-free; Mockery targets are now interfaces only; category lifecycle is create-once-at-activation and never-delete; `InputSanitizer` testing split into unit (delegation + own logic) vs. integration (real sanitization); API response/error shapes and field limits made concrete (see docs/phase2-wordpress-plugin-design.md and docs/api-spec.md for details).
