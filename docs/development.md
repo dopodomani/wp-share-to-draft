@@ -82,13 +82,26 @@ Don't leave local, unpushed changes and switch machines — if a task must be pa
 
 ## CI's role
 
-GitHub Actions is the environment that compensates for the secondary PC lacking an Android SDK — it's the one place every check always runs, regardless of which PC produced the change. On push/PR:
+GitHub Actions is the environment that compensates for the secondary PC lacking an Android SDK — it's the one place every check always runs, regardless of which PC produced the change.
 
-- **WordPress:** `composer install`, PHPUnit, PHPCS
-- **Android:** Gradle wrapper validation, JVM unit tests, ktlint, Detekt, Android Lint, `assembleDebug`
-- **Docs:** Markdown lint, Mermaid syntax check (if tooling supports it)
+**Android CI is built** ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml), added to supplement Phase 3b's build verification). On every push to `main` and every pull request touching `android/**`, a single Ubuntu job:
 
-This means code authored on the secondary PC (Android-SDK-dependent parts included) still gets a full build/test pass before merging, even though it couldn't be verified locally where it was written. CI setup itself is **not yet built** — tracked as a Phase 3b/5 task, not implied as already existing by this document.
+1. Checks out the repository
+2. Sets up JDK 17 (Temurin)
+3. Sets up the Android SDK, then explicitly installs `platforms;android-35` and `build-tools;35.0.0` to match `compileSdk`/`targetSdk` in `android/app/build.gradle.kts` — not left to AGP's lazy auto-download, so the exact packages needed are guaranteed up front rather than depending on network timing mid-build
+4. Validates the committed Gradle wrapper jar against Gradle's known-good checksums — kept as its own explicit step even though `gradle/actions/setup-gradle` (next) also runs; the two check different things (this repo's committed wrapper jar vs. the Gradle distribution `setup-gradle` itself downloads), so it isn't true redundancy, and either way it's cheap enough to keep for a clear, single-purpose pass/fail signal in the log
+5. Sets up Gradle with dependency/build caching
+6. `./gradlew :core:test` — `:core` unit tests
+7. `./gradlew :core:ktlintCheck`
+8. `./gradlew :app:testDebugUnitTest` — `:app` JVM unit tests, including the Robolectric-based `IntentParserTest`/`EncryptedSettingsRepositoryTest` that need the Android SDK to run at all
+9. `./gradlew :app:lintDebug` — Android Lint
+10. `./gradlew :app:assembleDebug` — the actual SDK-dependent compile/package step the secondary PC cannot perform
+
+No secrets are used or required: the build needs no real WordPress URL, username, or Application Password (`:core`'s network tests run entirely against MockWebServer). Test reports are uploaded as a workflow artifact on every run, pass or fail.
+
+**Explicitly out of scope for this workflow:** emulator/instrumented tests, real-device Share Target behavior, and real-WordPress smoke testing — those stay Phase 4 territory (see [docs/phase2-smoke-test-guide.md](phase2-smoke-test-guide.md) and [ROADMAP.md](../ROADMAP.md)'s Phase 4 gate), not something this CI attempts to replace.
+
+**Not yet built:** WordPress CI (`composer install`, PHPUnit, PHPCS) and docs CI (Markdown lint, Mermaid syntax check) — still tracked as Phase 5 tasks, not implied as existing by this document.
 
 ## Reporting unverified work
 

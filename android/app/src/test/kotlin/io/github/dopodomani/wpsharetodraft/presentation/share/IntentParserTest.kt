@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -20,8 +21,15 @@ import java.time.ZoneOffset
  * directly -- the one exception to "the secondary PC can run everything" (see
  * docs/phase3-android-app-design.md#9-android-test-strategy). Not run in this environment;
  * see docs/development.md.
+ *
+ * Pinned to API 34 via @Config: Robolectric 4.13 (this project's version) doesn't yet
+ * support API 35, which this app's compileSdk/targetSdk targets -- without this,
+ * Robolectric's DefaultSdkPicker defaults to targetSdk and throws
+ * IllegalArgumentException before any test runs. 34 has nothing this test depends on
+ * that differs from 35.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class IntentParserTest {
     private val fixedClock = Clock.fixed(Instant.parse("2026-07-28T09:15:00Z"), ZoneOffset.UTC)
     private val parser = IntentParser(fixedClock)
