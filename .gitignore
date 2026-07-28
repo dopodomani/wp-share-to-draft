@@ -1,7 +1,7 @@
 # Android (android/)
 *.iml
 .gradle/
-/local.properties
+local.properties
 build/
 .idea/
 captures/
