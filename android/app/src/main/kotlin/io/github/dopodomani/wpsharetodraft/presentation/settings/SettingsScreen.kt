@@ -72,7 +72,21 @@ fun SettingsScreen(
                     Text("保存")
                 }
             }
-        SettingsUiState.Saved -> LaunchedEffect(Unit) { onSaved() }
+        SettingsUiState.Saved -> {
+            // onSaved() navigates to Confirm when a share was pending, but is a deliberate
+            // no-op when Settings itself is the destination (launched from the icon, nothing
+            // to navigate to) -- so this branch must render something on its own rather than
+            // relying on navigation to replace it, or that second case is a permanently blank
+            // screen. See docs/phase3-android-smoke-test-results.md's 2026-07-30 entry.
+            LaunchedEffect(Unit) { onSaved() }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("設定を保存しました")
+            }
+        }
     }
 }
 

@@ -61,7 +61,7 @@ Added after main-PC smoke testing found that production hosting (dopodomani.biz)
 - [x] `post_status`/`post_author` still always server-controlled, identical guarantee to the REST path (same `CreateDraftUseCase`/`get_current_user_id()`, no client-supplied override)
 - [x] Fault codes match the table in `docs/api-spec.md`'s XML-RPC section
 - [x] PHPUnit tests (Brain\Monkey + Mockery, same conventions as the REST controller's tests) pass with no live WordPress instance — `composer test` (46 tests) and `composer lint` (PHPCS) both green
-- [ ] Manual verification against the production host that XML-RPC succeeds where REST does not — needs the Android `feature/android-xmlrpc-publisher` branch merged/deployed alongside this plugin update
+- [x] Manual verification against the production host that XML-RPC succeeds where REST does not — confirmed 2026-07-31 against dopodomani.biz (see docs/phase3-android-smoke-test-results.md), after fixing two real bugs found in the process: the `xmlrpc_init` registration hook (doesn't exist in WordPress core) and a wrong `createDraft` callback signature (`ArgumentCountError`)
 
 ## Phase 3 — Android Share Target app
 
@@ -107,7 +107,7 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 - [x] MockWebServer-based tests for the XML-RPC path, mirroring the existing REST test's coverage
 - [x] No automatic REST↔XML-RPC fallback or auto-detection anywhere
 - [x] ktlint clean; `:core:test`, `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` all pass locally — CI still to confirm on the PR
-- [ ] Manual verification against the production host that switching to XML-RPC succeeds where REST does not (blocked on Phase 2d — the plugin's `material_capture.createDraft` XML-RPC method isn't implemented/deployed yet)
+- [x] Manual verification against the production host that switching to XML-RPC succeeds where REST does not — confirmed 2026-07-31 against dopodomani.biz; a `NetworkOnMainThreadException` and a Japanese IME composition bug in the Confirm screen were found and fixed in the process (see docs/phase3-android-smoke-test-results.md)
 
 ## Phase 4 — Integration testing
 
