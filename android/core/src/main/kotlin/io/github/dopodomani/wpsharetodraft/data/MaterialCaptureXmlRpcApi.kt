@@ -2,6 +2,8 @@ package io.github.dopodomani.wpsharetodraft.data
 
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
 import io.github.dopodomani.wpsharetodraft.domain.DraftResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -36,9 +38,15 @@ class MaterialCaptureXmlRpcApi
                     .url(url)
                     .post(requestXml.toRequestBody(XML_MEDIA_TYPE))
                     .build()
-            httpClient.newCall(request).execute().use { response ->
-                val responseXml = response.body?.string().orEmpty()
-                return parseMethodResponse(responseXml)
+            // OkHttpClient.execute() is blocking -- Retrofit's suspend functions hop off the
+            // caller's dispatcher automatically, but this hand-rolled call doesn't, so it must
+            // do so explicitly or it crashes with NetworkOnMainThreadException when invoked
+            // from viewModelScope.launch (Dispatchers.Main.immediate).
+            return withContext(Dispatchers.IO) {
+                httpClient.newCall(request).execute().use { response ->
+                    val responseXml = response.body?.string().orEmpty()
+                    parseMethodResponse(responseXml)
+                }
             }
         }
 
