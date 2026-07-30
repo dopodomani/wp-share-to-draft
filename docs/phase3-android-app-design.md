@@ -215,6 +215,8 @@ Both ViewModels expose only a single `StateFlow` of a sealed UI-state type to th
 
 ## 4. Repository construction
 
+> **Phase 3c amendment (2026-07-30):** production smoke testing found a real host where REST's Basic Auth cannot authenticate at all (see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). `AppSettings` gains a `connectionMethod` field, `WordPressDestination` (below) is renamed `WordPressRestDestination` and joined by a sibling `WordPressXmlRpcDestination`, selected at runtime by a new `CompositeWordPressDestination` — this section's `Destination` interface and everything above it (`SubmitCaptureUseCase`, `ConfirmDraftViewModel`) are unaffected. Full detail: [docs/phase3c-android-xmlrpc-design.md](phase3c-android-xmlrpc-design.md).
+
 This project names its remote data-access port `Destination`, not `Repository` — a deliberate choice recorded in [docs/tech-decisions.md](tech-decisions.md#5-clean-architecture--explicit-destination-interface) so that adding GitHub/Notion/Slack/Webhook sinks later is a new `Destination` implementation, not a rename. It plays the same architectural role a "Repository" would.
 
 **Confirmed in review:** local (on-device) configuration is organized as **`SettingsRepository`**, not `CredentialRepository` as in revision 1. The stored value (site URL + username + Application Password) is broader than "credentials" — the site URL isn't a secret, only the username/password pair is — and `SettingsRepository` names the responsibility ("manage this app's configuration") rather than one narrower thing it happens to hold. The stored value type is renamed to match: `AppSettings`, not `Credentials`.
