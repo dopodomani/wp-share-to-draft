@@ -98,4 +98,47 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 
 ---
 
-*(Actual dated run results are added above this line as they happen — none recorded yet.)*
+## 2026-07-30
+
+**Environment:**
+- Emulator/device used: Pixel 9a API 37.1 (emulator-5554)
+- git commit SHA: `63a9065` (main, per docs/phase3-android-smoke-test-guide.md's guidance to confirm CI green for the tested commit)
+- Matching Android CI run: green (PR #1 merge commit)
+- Production WordPress target: dopodomani.biz
+
+**2. Build confirmation**
+| Check | Result | Notes |
+|---|---|---|
+| Gradle Sync | PASS | |
+| App installs | PASS | "Install successfully finished in 11s 212ms" |
+| App launches (no crash) | PASS | Settings screen rendered correctly, matching design (site URL/username/Application Password fields, Japanese labels correct) |
+
+**3. Settings**
+| Check | Result | Notes |
+|---|---|---|
+| Site URL input | PASS | `https://dopodomani.biz` accepted; trailing slash correctly normalized by `trimEnd('/')` |
+| Application Password masked on screen | PASS | Confirmed dots shown, not plaintext |
+| Save | **FAIL** | Repro: launch app from icon (no pending share) → fill Settings → tap 保存. Expected: some confirmation UI or navigation. Actual: screen goes **blank white and stays blank indefinitely** — `SettingsUiState.Saved` has no rendered Composable branch (`LaunchedEffect(Unit) { onSaved() }` only, no UI), and `onSaved()` is a no-op when there's no pending shared item. Underlying save to `EncryptedSettingsRepository` appears to succeed regardless (confirmed indirectly: a later share-from-Chrome skipped Settings and went straight to Confirm) — this is a UI-only bug, not a data-persistence bug. **Follow-up: file as an Issue, fix in a small branch (Settings needs a visible "saved" state or navigates somewhere sensible when there's no pending item).**
+| Restored after app restart (routes to Confirm, not Settings) | PASS | Confirms settings did persist despite the blank-screen bug above |
+| Settings form pre-fill on reopen | NOT TESTED | (known gap, not re-verified this run) |
+
+**4. Share Target**
+| Check | Result | Notes |
+|---|---|---|
+| App appears in Chrome's share sheet | PASS | "Material Capture" visible in both the direct-share row and the app icon grid |
+| Share title + URL | PASS | Confirm screen received a Wikipedia donation page's title/URL correctly |
+
+**Environment note (not an app bug):** repeated "System UI isn't responding" / "Chrome isn't responding" ANR dialogs and one unresponsive-tap incident on this specific emulator profile (Pixel 9a API 37.1) — API 37.1 is a very new/preview API level. Recommended follow-up: re-run on an API 35 (stable, matches CI/Robolectric's tested level) AVD to isolate whether this is emulator-image-specific.
+
+**6. WordPress integration**
+| Check | Result | Notes |
+|---|---|---|
+| Draft created | **BLOCKED**, then diagnosed | First attempt: plugin wasn't installed on production yet → REST endpoint returned `404 rest_no_route` (confirmed via direct `curl`, not an app bug — app correctly showed a generic error for an unrecognized status). Resolved by installing/activating the plugin (packaged via `composer install --no-dev` + zip, delivered directly since Composer wasn't on the main PC). |
+| Draft created (after plugin install) | **BLOCKED** | Route now registered (confirmed via `curl` → `401` instead of `404`), but authenticating with a real, verified-correct Application Password *still* returns this plugin's own `401 insufficient_capability` — meaning WordPress never authenticates the request at all. Root cause (confirmed both via a `.htaccess` `Authorization`-header-forwarding rewrite rule, which did **not** resolve it, and by the project's own pre-existing `publish_wordpress_article.py` already routing around identical behavior via XML-RPC): **this host does not forward the `Authorization` header to PHP**, so REST's Basic-Auth-based Application Password flow cannot work here at all. This is a hosting-level limitation, not an app or plugin bug — REST's own design and this plugin's error handling both behaved exactly as documented throughout. |
+
+**Follow-ups filed (if any):**
+- Settings-screen blank-after-save UI bug — to be filed as an Issue / fixed in a small branch (Phase 3b territory, code fix, independent of the items below)
+- **Phase 2c/2d + 3c/3d initiated**: add an XML-RPC fallback transport (`material_capture.createDraft` WordPress method + Android `ConnectionMethod` Settings choice), since this specific production host cannot authenticate REST at all. Design docs: [docs/phase2c-xmlrpc-design.md](phase2c-xmlrpc-design.md), [docs/phase3c-android-xmlrpc-design.md](phase3c-android-xmlrpc-design.md); ADR: [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport). Awaiting review before implementation.
+- Remaining smoke test sections (5. Confirm screen submission success path, 7. Error verification) blocked on either the XML-RPC fallback landing, or testing against a WordPress host where REST's Authorization header works (e.g. LocalWP, per docs/phase2-smoke-test-guide.md) — not yet attempted this run.
+
+*(Further dated run results are added above this line as they happen.)*
