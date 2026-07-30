@@ -60,13 +60,16 @@ fun ConfirmDraftScreen(
 
 /**
  * Each field keeps its own local [TextFieldValue] as the single source of truth for what's
- * rendered, seeded once from [state] when this composable enters composition (i.e. fresh on
- * every Idle -> Loading/Error -> Idle cycle, since the `when` branch in [ConfirmDraftScreen]
- * disposes and remounts this on every state-class change). Rendering directly from `state`
- * (a value that round-trips through the ViewModel's StateFlow on every keystroke) was
- * confirmed to break Japanese IME composition -- the mid-conversion "未確定文字列" state
- * doesn't survive that round trip. Keeping the field's own value local, and only notifying
- * the ViewModel as a side effect, avoids the round trip on the value the field itself reads.
+ * rendered, so mid-conversion Japanese IME state ("未確定文字列") survives -- rendering
+ * directly from `state` (a value that round-trips through the ViewModel's StateFlow on every
+ * keystroke) was confirmed to break IME composition. But `IdleContent` does NOT get
+ * remounted on every `state` update within the same Idle "session" (e.g. `initialize()`
+ * arriving after first composition, or `edit()` restoring a previously-submitted item) --
+ * only on Idle <-> Loading/Error branch changes -- so an unconditional `remember` would
+ * freeze the field at whatever it saw on first composition and ignore genuinely new
+ * incoming data. Reconciled here: if `state.item.<field>` differs from what this field
+ * itself last echoed back, that's an external change (not the user's own typing coming back
+ * around), so the local value is resynced to it.
  */
 @Composable
 private fun IdleContent(
@@ -78,8 +81,17 @@ private fun IdleContent(
     onCancel: () -> Unit,
 ) {
     var titleField by remember { mutableStateOf(TextFieldValue(state.item.title)) }
+    if (state.item.title != titleField.text) {
+        titleField = TextFieldValue(state.item.title)
+    }
     var urlField by remember { mutableStateOf(TextFieldValue(state.item.url)) }
+    if (state.item.url != urlField.text) {
+        urlField = TextFieldValue(state.item.url)
+    }
     var memoField by remember { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
+    if ((state.item.memo ?: "") != memoField.text) {
+        memoField = TextFieldValue(state.item.memo ?: "")
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
