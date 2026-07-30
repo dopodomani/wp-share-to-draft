@@ -44,24 +44,24 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 - [ ] Manual smoke test against LocalWP or `wp-env` (Docker) covers the happy path and every documented error code — procedure and checklist ready in [docs/phase2-smoke-test-guide.md](docs/phase2-smoke-test-guide.md), results recorded in [docs/phase2-smoke-test-results.md](docs/phase2-smoke-test-results.md); **not yet run**
 - [x] Any design deviation discovered during implementation is reflected back into `docs/phase2-wordpress-plugin-design.md` and `docs/api-spec.md` (if API-shaped) **before** the corresponding code is merged
 
-### Phase 2c — XML-RPC fallback (design)
+### Phase 2c — XML-RPC fallback (design) ✅ complete
 
 Added after main-PC smoke testing found that production hosting (dopodomani.biz) does not forward the `Authorization` header to PHP even with the documented `.htaccess` rewrite rule — meaning Application-Password-over-REST cannot authenticate there at all. Confirmed by the project's own pre-existing `publish_wordpress_article.py`, which already works around identical hosting behavior using XML-RPC. See [docs/tech-decisions.md #11](docs/tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport) for the full rationale and why this amends, rather than reverses, ADR #2.
 
 **Definition of Done:**
-- [ ] [docs/phase2c-xmlrpc-design.md](docs/phase2c-xmlrpc-design.md) written: XML-RPC method name/params/response/fault-code contract, class design, auth division of responsibility, test plan
-- [ ] `docs/api-spec.md`, `docs/security.md`, `docs/tech-decisions.md` updated accordingly
-- [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
+- [x] [docs/phase2c-xmlrpc-design.md](docs/phase2c-xmlrpc-design.md) written: XML-RPC method name/params/response/fault-code contract, class design, auth division of responsibility, test plan
+- [x] `docs/api-spec.md`, `docs/security.md`, `docs/tech-decisions.md` updated accordingly
+- [x] Design reviewed and explicitly approved by the user (2026-07-30, resolving the two open questions: register unconditionally, English `IXR_Error` messages) — implementation proceeds in Phase 2d
 
-### Phase 2d — XML-RPC fallback (implementation, blocked until 2c is approved)
+### Phase 2d — XML-RPC fallback (implementation, current)
 
 **Definition of Done:**
-- [ ] `material_capture.createDraft` XML-RPC method registered via the `xmlrpc_methods` filter, delegating to the same `CreateDraftUseCase`/`DraftPayloadFactory` the REST controller uses — no duplicated business logic
-- [ ] Application Password authentication via `wp_xmlrpc_server::login()` (WordPress core supports Application Passwords for XML-RPC natively, per WP's own documentation)
-- [ ] `post_status`/`post_author` still always server-controlled, identical guarantee to the REST path
-- [ ] Fault codes match the table in `docs/api-spec.md`'s XML-RPC section
-- [ ] PHPUnit tests (Brain\Monkey + Mockery, same conventions as the REST controller's tests) pass with no live WordPress instance
-- [ ] Manual verification against the production host that XML-RPC succeeds where REST does not
+- [x] `material_capture.createDraft` XML-RPC method registered via the `xmlrpc_methods` filter, delegating to the same `CreateDraftUseCase`/`DraftPayloadFactory` the REST controller uses — no duplicated business logic (`includes/XmlRpc/DraftXmlRpcHandler.php`)
+- [x] Application Password authentication via `wp_xmlrpc_server::login()` (WordPress core supports Application Passwords for XML-RPC natively, per WP's own documentation)
+- [x] `post_status`/`post_author` still always server-controlled, identical guarantee to the REST path (same `CreateDraftUseCase`/`get_current_user_id()`, no client-supplied override)
+- [x] Fault codes match the table in `docs/api-spec.md`'s XML-RPC section
+- [x] PHPUnit tests (Brain\Monkey + Mockery, same conventions as the REST controller's tests) pass with no live WordPress instance — `composer test` (46 tests) and `composer lint` (PHPCS) both green
+- [ ] Manual verification against the production host that XML-RPC succeeds where REST does not — needs the Android `feature/android-xmlrpc-publisher` branch merged/deployed alongside this plugin update
 
 ## Phase 3 — Android Share Target app
 
