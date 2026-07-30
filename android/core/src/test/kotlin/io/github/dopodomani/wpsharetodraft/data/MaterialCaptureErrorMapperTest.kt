@@ -78,6 +78,55 @@ class MaterialCaptureErrorMapperTest {
         assertEquals(CaptureError.Network.Unreachable, mapper.fromException(IOException("connection reset")))
     }
 
+    @Test
+    fun `xml-rpc faultCode 400 with an https message maps to HttpsRequired`() {
+        val fault = XmlRpcResult.Fault(400, "HTTPS required")
+
+        assertEquals(CaptureError.HttpsRequired, mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `xml-rpc faultCode 400 without an https message maps to Validation`() {
+        val fault = XmlRpcResult.Fault(400, "title is required")
+
+        assertEquals(CaptureError.Validation("unknown", "title is required"), mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `xml-rpc faultCode 403 with a login-failure message maps to Unauthenticated`() {
+        val fault = XmlRpcResult.Fault(403, "Incorrect username or password")
+
+        assertEquals(CaptureError.Unauthenticated, mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `xml-rpc faultCode 403 with a plugin message maps to InsufficientCapability`() {
+        val fault = XmlRpcResult.Fault(403, "insufficient_capability")
+
+        assertEquals(CaptureError.InsufficientCapability, mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `xml-rpc faultCode 409 maps to CategoryUnavailable`() {
+        val fault = XmlRpcResult.Fault(409, "category_unavailable")
+
+        assertEquals(CaptureError.CategoryUnavailable, mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `xml-rpc faultCode 500 maps to ServerError carrying the message`() {
+        val fault = XmlRpcResult.Fault(500, "db down")
+
+        assertEquals(CaptureError.ServerError("db down"), mapper.fromXmlRpcFault(fault))
+    }
+
+    @Test
+    fun `an unrecognized xml-rpc faultCode maps to Unknown`() {
+        val fault = XmlRpcResult.Fault(0, "Malformed XML-RPC response")
+
+        assertEquals(CaptureError.Unknown("Malformed XML-RPC response"), mapper.fromXmlRpcFault(fault))
+    }
+
     private fun errorResponse(
         code: Int,
         json: String,

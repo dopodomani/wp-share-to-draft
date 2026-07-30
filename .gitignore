@@ -1,6 +1,7 @@
 # Android (android/)
 *.iml
 .gradle/
+.kotlin/
 local.properties
 build/
 .idea/
