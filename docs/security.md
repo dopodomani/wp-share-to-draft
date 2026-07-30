@@ -41,6 +41,15 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 - The REST route requires `edit_posts` capability on the authenticated user (checked in the `permission_callback`, per WordPress REST API convention — never inside the handler as an afterthought).
 - No endpoint accepts an arbitrary WordPress user ID or "act as" parameter — the post author is always the authenticated user.
 
+## XML-RPC fallback transport (Phase 2c/2d, designed not yet built)
+
+An opt-in alternative to REST for hosts that strip the `Authorization` header before it reaches PHP (see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). This section documents its security posture explicitly, since XML-RPC as a *general WordPress feature* has a materially different risk profile than REST — see [ADR #2](tech-decisions.md#2-rest-api-not-xml-rpc):
+
+- **Same credential, same transport security.** Application Passwords are used exactly as they are for REST — no new credential type, no new storage on the Android side. HTTPS is still required; a plain-HTTP XML-RPC request must be rejected server-side, mirroring the REST path's `https_required` check.
+- **This plugin does not enable XML-RPC on a site that doesn't already have it enabled**, and does not change the site's existing XML-RPC exposure. If `xmlrpc.php` is already reachable (as it must be, for this fallback to work at all), the well-known XML-RPC-wide risks (`system.multicall` amplification for brute-force, pingback-based SSRF/DDoS via `pingback.ping`) are pre-existing site-level exposure this plugin's one additional authenticated method does not materially increase — but it also does nothing to reduce them. Operators relying on this fallback are relying on a transport this project would not otherwise recommend turning on; **only enable it if REST is genuinely unusable on your host**, and consider a security plugin that restricts XML-RPC to specific methods if available.
+- **The new method itself carries no elevated risk beyond REST's own:** it requires the same Application Password, the same `edit_posts` capability check, hardcodes `post_status` to `draft` and `post_author` to the authenticated user identically to the REST path — see [docs/phase2c-xmlrpc-design.md](phase2c-xmlrpc-design.md) for the class-level detail once written.
+- **Bad-credential handling is WordPress core's, not this plugin's**, exactly mirroring the REST division of responsibility (see [Authentication method comparison](#authentication-method-comparison) above) — `wp_xmlrpc_server::login()` fails closed before this plugin's own method body ever runs.
+
 ## Threat model summary
 
 | Threat | Mitigation |
@@ -52,6 +61,7 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 | Credential theft from a compromised Android device | Keystore-backed encrypted storage; out of scope beyond standard Android app sandboxing (not defending against a rooted/compromised device) |
 | Abuse of the endpoint from an unrelated caller | Requires valid Application Password + capability check; recommend WAF/rate-limit plugin if the site is broadly reachable (see [api-spec.md](api-spec.md#rate-limiting)) |
 | Plugin activated then abandoned, leaving stale data/hooks | `uninstall.php` removes only the plugin's own options — it never deletes the `素材候補` category or any posts, even if the category is empty. A same-named category may predate the plugin or be reused by the site owner for other purposes, so deleting by name (or even by a "we created it" flag) is judged not worth the risk for v1; see [phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md) for the full rationale. Data ownership stays with the site. |
+| Enabling the XML-RPC fallback re-exposes XML-RPC-wide risks (brute-force amplification, pingback SSRF) | This plugin doesn't newly enable `xmlrpc.php` — it only adds one authenticated method to a transport the site owner already had reachable. Documented as an explicit trade-off; REST stays the recommended default, XML-RPC is opt-in per site (see the section above) |
 
 ## Non-goals for v1
 

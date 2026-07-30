@@ -126,6 +126,42 @@ Body template (server-rendered, not client-supplied HTML, to prevent injection �
 {shared_text, if present}
 ```
 
+## XML-RPC fallback (`material_capture.createDraft`)
+
+**Status: designed, Phase 2c/2d (not yet implemented).** An opt-in alternative to the REST endpoint above, for hosting environments that don't forward the `Authorization` header to PHP (confirmed on at least one real production host — see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). REST remains the default and recommended transport; this exists purely as a fallback, selected explicitly per site in the Android app's Settings screen.
+
+**Endpoint:** the site's standard `xmlrpc.php`, over HTTPS only (same requirement as REST — see [security.md](security.md#transport-security)).
+
+**Method:** `material_capture.createDraft`
+
+**Params** (positional, XML-RPC array, matching the order below):
+
+| Position | Type | Required | Notes |
+|---|---|---|---|
+| 0 | string | Yes | Username |
+| 1 | string | Yes | Application Password (same credential as REST — WordPress core supports Application Passwords for XML-RPC natively, not just REST) |
+| 2 | string | Yes | `title` |
+| 3 | string | Yes | `url` |
+| 4 | string or nil | No | `shared_text` |
+| 5 | string or nil | No | `memo` |
+| 6 | string or nil | No | `source` |
+| 7 | string or nil | No | `shared_at` (same format requirement as REST) |
+
+**Success response** — an XML-RPC `struct` with the same fields as the REST `201` body: `post_id`, `status`, `title`, `edit_url`, `preview_url`, `category`, `created_at` (see [Success response](#endpoints) above for field meanings — identical here).
+
+**Faults** — XML-RPC has no native concept of an HTTP status or a `code` string, so this plugin uses `faultCode` numbers matching the REST status codes 1:1 for a consistent mental model (this is this plugin's own convention, not an XML-RPC standard), with `faultString` carrying the human-readable message:
+
+| `faultCode` | Meaning | Who determines this |
+|---|---|---|
+| *(no fault; `wp_xmlrpc_server::login()` failure)* | Bad username/Application Password | **WordPress core's own error** (typically `faultCode` 403, "Incorrect username or password") — this plugin does not invent its own code for this case, mirroring the REST division of responsibility |
+| 400 | `missing_required_field` / `invalid_url` / `invalid_shared_at` (message distinguishes which) | plugin |
+| 400 | HTTPS required | plugin |
+| 403 | `insufficient_capability` | plugin |
+| 409 | `category_unavailable` | plugin |
+| 500 | `insert_failed` | plugin |
+
+Full class design, method signature, and test plan: [docs/phase2c-xmlrpc-design.md](phase2c-xmlrpc-design.md).
+
 ## Versioning & compatibility
 
 - Namespace is `material-capture/v1` — a breaking change (removed field, changed semantics) ships as `v2` and both are served in parallel for a deprecation window.
