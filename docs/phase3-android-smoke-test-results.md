@@ -141,4 +141,37 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 - **Phase 2c/2d + 3c/3d initiated**: add an XML-RPC fallback transport (`material_capture.createDraft` WordPress method + Android `ConnectionMethod` Settings choice), since this specific production host cannot authenticate REST at all. Design docs: [docs/phase2c-xmlrpc-design.md](phase2c-xmlrpc-design.md), [docs/phase3c-android-xmlrpc-design.md](phase3c-android-xmlrpc-design.md); ADR: [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport). Awaiting review before implementation.
 - Remaining smoke test sections (5. Confirm screen submission success path, 7. Error verification) blocked on either the XML-RPC fallback landing, or testing against a WordPress host where REST's Authorization header works (e.g. LocalWP, per docs/phase2-smoke-test-guide.md) — not yet attempted this run.
 
+---
+
+## 2026-07-30 (Phase 3d — XML-RPC transport)
+
+**Environment:**
+- Emulator/device used: Pixel 9a API 37.1 (emulator-5554)
+- git commit SHA: `feature/android-xmlrpc-publisher` branch (Phase 3d implementation), :core/:app builds green locally
+- Production WordPress target: dopodomani.biz
+- Settings: 接続方式 = XML-RPC (default)
+
+**3. Settings**
+| Check | Result | Notes |
+|---|---|---|
+| 接続方式 radio picker (XML-RPC / REST API) | PASS | XML-RPC pre-selected as designed; explanatory text rendered |
+
+**5. Confirm screen**
+| Check | Result | Notes |
+|---|---|---|
+| Save (submit) via XML-RPC — attempt 1 | **FAIL** (app bug, now fixed) | Logcat: `WordPressDestination: Publishing via XML_RPC` immediately followed by `FATAL EXCEPTION: ... android.os.NetworkOnMainThreadException` at `MaterialCaptureXmlRpcApi.createDraft` → app crash (PID killed). Root cause: `MaterialCaptureXmlRpcApi.createDraft` called OkHttp's blocking `execute()` directly without switching off `Dispatchers.Main.immediate` (Retrofit's suspend functions do this automatically; this hand-rolled call didn't). Fixed same-session by wrapping the call in `withContext(Dispatchers.IO)` — see `android/core/.../data/MaterialCaptureXmlRpcApi.kt`. |
+| Save (submit) via XML-RPC — attempt 2 (post-fix) | PASS (no crash) | Logcat shows `Publishing via XML_RPC` with no following exception; UI transitions cleanly to the Error screen ("予期しないエラーが発生しました" / 再試行), i.e. `CaptureError.Unknown` |
+
+**6. WordPress integration**
+| Check | Result | Notes |
+|---|---|---|
+| Draft created via XML-RPC | **BLOCKED** | Expected: the WordPress plugin's `material_capture.createDraft` XML-RPC method (Phase 2d) is not yet implemented/deployed on dopodomani.biz, so `xmlrpc.php` doesn't recognize the method and the response doesn't parse as our expected success shape — mapped to `CaptureError.Unknown` rather than crashing. Not an Android-side bug; blocked on Phase 2d landing. |
+
+**Overall:** ☐ All checks passed ☑ Issues found (see notes) — one real bug found and fixed this session (`NetworkOnMainThreadException` in `XmlRpcPublisher`'s transport); end-to-end XML-RPC draft creation remains blocked on Phase 2d.
+
+**Follow-ups filed (if any):**
+- Fixed this session: `MaterialCaptureXmlRpcApi.createDraft` now runs its OkHttp call inside `withContext(Dispatchers.IO)`.
+- Still open: Phase 2d (WordPress plugin `material_capture.createDraft` XML-RPC method) needs implementing/deploying before end-to-end XML-RPC draft creation can be verified against dopodomani.biz.
+- Settings-screen blank-after-save UI bug (recorded above, 2026-07-30) is still unfixed — unrelated to this XML-RPC work.
+
 *(Further dated run results are added above this line as they happen.)*
