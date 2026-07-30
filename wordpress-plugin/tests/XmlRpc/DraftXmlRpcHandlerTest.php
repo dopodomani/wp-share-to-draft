@@ -25,20 +25,31 @@ use wp_xmlrpc_server;
  * docs/phase2c-xmlrpc-design.md#test-plan. DraftPayloadFactory is never mocked (deliberately
  * concrete/final); only CreateDraftUseCase (an interface) and wp_xmlrpc_server (WordPress
  * core's own class, stubbed in tests/wp-stubs.php) are Mockery targets.
+ *
+ * createDraft() takes a single $args parameter -- WordPress's real XML-RPC dispatcher never
+ * passes a server instance as a second argument, it's reached via the $wp_xmlrpc_server
+ * global instead (see the handler's own docblock for why). Each test sets that global before
+ * calling createDraft() and unsets it afterward so tests don't leak state into each other.
  */
 final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
 {
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['wp_xmlrpc_server']);
+        parent::tearDown();
+    }
+
     public function test_login_failure_returns_the_servers_error_unchanged(): void
     {
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldNotReceive('create');
 
-        $server = Mockery::mock(wp_xmlrpc_server::class);
+        $server = $this->registerGlobalServer();
         $server->shouldReceive('login')->once()->with('user', 'wrong-password')->andReturn(false);
         $server->error = new IXR_Error(403, 'Incorrect username or password.');
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $result = $handler->createDraft(['user', 'wrong-password', 'Title', 'https://example.com'], $server);
+        $result = $handler->createDraft(['user', 'wrong-password', 'Title', 'https://example.com']);
 
         self::assertSame($server->error, $result);
     }
@@ -46,15 +57,13 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
     public function test_plain_http_maps_to_a_400_fault(): void
     {
         Functions\when('is_ssl')->justReturn(false);
+        $this->registerLoggedInGlobalServer();
 
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldNotReceive('create');
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $result = $handler->createDraft(
-            ['user', 'app-password', 'Title', 'https://example.com'],
-            $this->loggedInServer(),
-        );
+        $result = $handler->createDraft(['user', 'app-password', 'Title', 'https://example.com']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(400, $result->code);
@@ -64,15 +73,13 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
     {
         Functions\when('is_ssl')->justReturn(true);
         Functions\when('current_user_can')->justReturn(false);
+        $this->registerLoggedInGlobalServer();
 
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldNotReceive('create');
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $result = $handler->createDraft(
-            ['user', 'app-password', 'Title', 'https://example.com'],
-            $this->loggedInServer(),
-        );
+        $result = $handler->createDraft(['user', 'app-password', 'Title', 'https://example.com']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(403, $result->code);
@@ -82,13 +89,14 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
     {
         Functions\when('is_ssl')->justReturn(true);
         Functions\when('current_user_can')->justReturn(true);
+        $this->registerLoggedInGlobalServer();
 
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldNotReceive('create');
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
         // Missing url -> the real DraftPayloadFactory/DraftPayload rejects it for real.
-        $result = $handler->createDraft(['user', 'app-password', 'Title', ''], $this->loggedInServer());
+        $result = $handler->createDraft(['user', 'app-password', 'Title', '']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(400, $result->code);
@@ -99,15 +107,13 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         Functions\when('is_ssl')->justReturn(true);
         Functions\when('current_user_can')->justReturn(true);
         Functions\when('get_current_user_id')->justReturn(42);
+        $this->registerLoggedInGlobalServer();
 
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldReceive('create')->once()->andThrow(new CategoryUnavailableException());
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $result = $handler->createDraft(
-            ['user', 'app-password', 'Title', 'https://example.com'],
-            $this->loggedInServer(),
-        );
+        $result = $handler->createDraft(['user', 'app-password', 'Title', 'https://example.com']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(409, $result->code);
@@ -118,15 +124,13 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         Functions\when('is_ssl')->justReturn(true);
         Functions\when('current_user_can')->justReturn(true);
         Functions\when('get_current_user_id')->justReturn(42);
+        $this->registerLoggedInGlobalServer();
 
         $useCase = Mockery::mock(CreateDraftUseCase::class);
         $useCase->shouldReceive('create')->once()->andThrow(new DraftCreationFailedException('db error'));
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $result = $handler->createDraft(
-            ['user', 'app-password', 'Title', 'https://example.com'],
-            $this->loggedInServer(),
-        );
+        $result = $handler->createDraft(['user', 'app-password', 'Title', 'https://example.com']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(500, $result->code);
@@ -137,6 +141,7 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         Functions\when('is_ssl')->justReturn(true);
         Functions\when('current_user_can')->justReturn(true);
         Functions\when('get_current_user_id')->justReturn(42);
+        $this->registerLoggedInGlobalServer();
 
         $now = new DateTimeImmutable('2026-07-30T09:15:03Z');
         $result = new DraftResult(1, 'draft', '[INBOX] Title', 'https://x/edit', 'https://x/preview', MaterialCategory::NAME, $now);
@@ -145,10 +150,7 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         $useCase->shouldReceive('create')->once()->with(Mockery::type(DraftPayload::class), 42)->andReturn($result);
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        $response = $handler->createDraft(
-            ['user', 'app-password', 'Title', 'https://example.com'],
-            $this->loggedInServer(),
-        );
+        $response = $handler->createDraft(['user', 'app-password', 'Title', 'https://example.com']);
 
         self::assertIsArray($response);
         self::assertSame(1, $response['post_id']);
@@ -160,10 +162,18 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         self::assertSame($now->format(DATE_ATOM), $response['created_at']);
     }
 
-    private function loggedInServer(): wp_xmlrpc_server
+    private function registerLoggedInGlobalServer(): wp_xmlrpc_server
+    {
+        $server = $this->registerGlobalServer();
+        $server->shouldReceive('login')->andReturn(true);
+
+        return $server;
+    }
+
+    private function registerGlobalServer(): wp_xmlrpc_server
     {
         $server = Mockery::mock(wp_xmlrpc_server::class);
-        $server->shouldReceive('login')->andReturn(true);
+        $GLOBALS['wp_xmlrpc_server'] = $server;
 
         return $server;
     }
