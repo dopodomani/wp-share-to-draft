@@ -5,8 +5,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.dopodomani.wpsharetodraft.data.WordPressDestination
+import io.github.dopodomani.wpsharetodraft.data.local.AndroidLogger
 import io.github.dopodomani.wpsharetodraft.data.local.EncryptedSettingsRepository
 import io.github.dopodomani.wpsharetodraft.domain.Destination
+import io.github.dopodomani.wpsharetodraft.domain.Logger
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
 import javax.inject.Singleton
 
@@ -24,4 +26,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: EncryptedSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLogger(impl: AndroidLogger): Logger
 }
