@@ -62,14 +62,16 @@ fun ConfirmDraftScreen(
  * Each field keeps its own local [TextFieldValue] as the single source of truth for what's
  * rendered, so mid-conversion Japanese IME state ("未確定文字列") survives -- rendering
  * directly from `state` (a value that round-trips through the ViewModel's StateFlow on every
- * keystroke) was confirmed to break IME composition. But `IdleContent` does NOT get
- * remounted on every `state` update within the same Idle "session" (e.g. `initialize()`
- * arriving after first composition, or `edit()` restoring a previously-submitted item) --
- * only on Idle <-> Loading/Error branch changes -- so an unconditional `remember` would
- * freeze the field at whatever it saw on first composition and ignore genuinely new
- * incoming data. Reconciled here: if `state.item.<field>` differs from what this field
- * itself last echoed back, that's an external change (not the user's own typing coming back
- * around), so the local value is resynced to it.
+ * keystroke) was confirmed to break IME composition.
+ *
+ * Keyed on `state.item.sharedAt` rather than left unkeyed or reconciled by comparing values
+ * on every recomposition: `sharedAt` is the one field none of `onTitleChanged`/
+ * `onUrlChanged`/`onMemoChanged` ever touches, so it's a stable identity for "this share
+ * session" that only changes when a genuinely new item arrives (`initialize()`) -- unlike a
+ * per-recomposition value comparison, which raced against `collectAsState()`'s StateFlow
+ * collection (arriving on a later frame than the field's own snapshot-state write) and
+ * stomped the just-typed character back to the stale value on almost every keystroke,
+ * breaking IME composition even worse than reading `state` directly did.
  */
 @Composable
 private fun IdleContent(
@@ -80,18 +82,9 @@ private fun IdleContent(
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    var titleField by remember { mutableStateOf(TextFieldValue(state.item.title)) }
-    if (state.item.title != titleField.text) {
-        titleField = TextFieldValue(state.item.title)
-    }
-    var urlField by remember { mutableStateOf(TextFieldValue(state.item.url)) }
-    if (state.item.url != urlField.text) {
-        urlField = TextFieldValue(state.item.url)
-    }
-    var memoField by remember { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
-    if ((state.item.memo ?: "") != memoField.text) {
-        memoField = TextFieldValue(state.item.memo ?: "")
-    }
+    var titleField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.title)) }
+    var urlField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.url)) }
+    var memoField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
