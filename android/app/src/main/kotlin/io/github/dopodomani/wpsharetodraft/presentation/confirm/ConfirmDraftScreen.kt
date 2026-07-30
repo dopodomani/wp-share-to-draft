@@ -13,8 +13,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.dopodomani.wpsharetodraft.domain.CaptureError
@@ -54,6 +58,16 @@ fun ConfirmDraftScreen(
     }
 }
 
+/**
+ * Each field keeps its own local [TextFieldValue] as the single source of truth for what's
+ * rendered, seeded once from [state] when this composable enters composition (i.e. fresh on
+ * every Idle -> Loading/Error -> Idle cycle, since the `when` branch in [ConfirmDraftScreen]
+ * disposes and remounts this on every state-class change). Rendering directly from `state`
+ * (a value that round-trips through the ViewModel's StateFlow on every keystroke) was
+ * confirmed to break Japanese IME composition -- the mid-conversion "未確定文字列" state
+ * doesn't survive that round trip. Keeping the field's own value local, and only notifying
+ * the ViewModel as a side effect, avoids the round trip on the value the field itself reads.
+ */
 @Composable
 private fun IdleContent(
     state: ConfirmDraftUiState.Idle,
@@ -63,22 +77,35 @@ private fun IdleContent(
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    var titleField by remember { mutableStateOf(TextFieldValue(state.item.title)) }
+    var urlField by remember { mutableStateOf(TextFieldValue(state.item.url)) }
+    var memoField by remember { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
-            value = state.item.title,
-            onValueChange = onTitleChanged,
+            value = titleField,
+            onValueChange = {
+                titleField = it
+                onTitleChanged(it.text)
+            },
             label = { Text("タイトル") },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
-            value = state.item.url,
-            onValueChange = onUrlChanged,
+            value = urlField,
+            onValueChange = {
+                urlField = it
+                onUrlChanged(it.text)
+            },
             label = { Text("URL") },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
-            value = state.item.memo ?: "",
-            onValueChange = onMemoChanged,
+            value = memoField,
+            onValueChange = {
+                memoField = it
+                onMemoChanged(it.text)
+            },
             label = { Text("メモ") },
             modifier = Modifier.fillMaxWidth(),
         )
