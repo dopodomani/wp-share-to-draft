@@ -52,11 +52,15 @@ final class Plugin
     }
 
     /**
-     * Hooked to xmlrpc_init. Wires the same object graph as registerRoutes() into a second,
-     * XML-RPC adapter over the identical CreateDraftUseCase/DraftPayloadFactory -- see
-     * docs/phase2c-xmlrpc-design.md#layering. Registers unconditionally (no
-     * wp_is_application_passwords_available() pre-check); a disabled/misconfigured
-     * Application Passwords setup surfaces as a normal login() failure instead.
+     * Called unconditionally from the plugin bootstrap (no wrapping action -- WordPress core
+     * has no `xmlrpc_init` action; `xmlrpc_methods` is a plain filter applied only when
+     * xmlrpc.php itself constructs its server, so registering it early/always is cheap and
+     * correct, exactly like registerRoutes()'s `rest_api_init` registration). Wires the same
+     * object graph into a second, XML-RPC adapter over the identical
+     * CreateDraftUseCase/DraftPayloadFactory -- see docs/phase2c-xmlrpc-design.md#layering.
+     * Registers unconditionally (no wp_is_application_passwords_available() pre-check); a
+     * disabled/misconfigured Application Passwords setup surfaces as a normal login() failure
+     * instead.
      */
     public function registerXmlRpcMethods(): void
     {

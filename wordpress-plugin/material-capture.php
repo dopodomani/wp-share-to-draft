@@ -32,6 +32,8 @@ add_action('rest_api_init', static function (): void {
     (new Plugin())->registerRoutes();
 });
 
-add_action('xmlrpc_init', static function (): void {
-    (new Plugin())->registerXmlRpcMethods();
-});
+// No wrapping action here on purpose -- WordPress core has no `xmlrpc_init` action.
+// `xmlrpc_methods` is a plain filter, only ever applied when xmlrpc.php itself constructs
+// its server, so registering it unconditionally at plugin load time is the correct,
+// standard pattern (this is how core plugins like Jetpack add XML-RPC methods too).
+(new Plugin())->registerXmlRpcMethods();

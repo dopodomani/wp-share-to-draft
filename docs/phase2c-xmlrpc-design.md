@@ -138,7 +138,7 @@ public function registerXmlRpcMethods(): void {
 }
 ```
 
-Bootstrap (`material-capture.php`) adds one line: `add_action('xmlrpc_init', [$plugin, 'registerXmlRpcMethods']);` (or hooks `xmlrpc_methods` directly — exact hook TBD at implementation time, either is standard).
+**Corrected during implementation (2026-07-31):** the original draft of this doc proposed `add_action('xmlrpc_init', [$plugin, 'registerXmlRpcMethods']);` in the bootstrap. **WordPress core has no `xmlrpc_init` action** — `xmlrpc_methods` is a plain filter, only ever applied by core when `xmlrpc.php` itself constructs its server. Hooking a nonexistent action meant `registerXmlRpcMethods()` was never called and the method silently never registered — caught via manual production verification (`system.listMethods` didn't list `material_capture.createDraft`, even though the REST route was confirmed present). Fixed by calling `(new Plugin())->registerXmlRpcMethods()` unconditionally at plugin load time in `material-capture.php`, with no wrapping action — the standard pattern (this is how core plugins like Jetpack add their own XML-RPC methods too).
 
 ## Error mapping (extends the REST table in docs/api-spec.md)
 
