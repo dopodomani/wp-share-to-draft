@@ -1,0 +1,170 @@
+# Phase 2c Design — WordPress Plugin XML-RPC Fallback
+
+**Status: awaiting review.** This document is the reviewable design artifact for Phase 2c. No XML-RPC code exists yet — per [ROADMAP.md](../ROADMAP.md#process), implementation (Phase 2d) starts only after this doc is explicitly approved, exactly as Phases 2a/3a were gated. It refines [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport), [docs/api-spec.md](api-spec.md#xml-rpc-fallback-material_capturecreatedraft), and [docs/security.md](security.md#xml-rpc-fallback-transport-phase-2c2d-designed-not-yet-built) into concrete classes and method signatures.
+
+## Why this exists
+
+Production smoke testing (Phase 3b) found that at least one real WordPress host does not forward the `Authorization` header to PHP, even with the documented `.htaccess` fix — REST's Application-Password-over-Basic-Auth cannot authenticate there at all. XML-RPC sends credentials as method-call parameters instead of an HTTP header, sidestepping that specific hosting limitation. See [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport) for the full context and rejected alternatives.
+
+## Layering (extends, does not replace, the Phase 2 layering)
+
+```mermaid
+flowchart TB
+    subgraph rest["Rest"]
+        DraftController["DraftController"]
+    end
+    subgraph xmlrpc["XmlRpc (new)"]
+        XmlRpcHandler["DraftXmlRpcHandler"]
+    end
+    subgraph application["Application (unchanged)"]
+        UseCase["CreateDraftUseCase"]
+        Factory["DraftPayloadFactory"]
+    end
+
+    DraftController --> UseCase
+    DraftController --> Factory
+    XmlRpcHandler --> UseCase
+    XmlRpcHandler --> Factory
+```
+
+`XmlRpc/DraftXmlRpcHandler` is a **second thin adapter** over the exact same `CreateDraftUseCase`/`DraftPayloadFactory` the REST controller already uses — see [docs/phase2-wordpress-plugin-design.md#layering](phase2-wordpress-plugin-design.md#layering). No changes to `Domain`/`Application`/`Infrastructure` are needed; this confirms that layering was the right call for exactly this kind of extension.
+
+## File layout addition
+
+```
+wordpress-plugin/
+├── includes/
+│   ├── XmlRpc/                          # new
+│   │   └── DraftXmlRpcHandler.php
+│   └── ... (Rest/, Application/, Domain/, Infrastructure/ unchanged)
+└── tests/
+    └── XmlRpc/                          # new
+        └── DraftXmlRpcHandlerTest.php
+```
+
+## Class design
+
+### `XmlRpc/DraftXmlRpcHandler.php`
+
+```php
+final class DraftXmlRpcHandler {
+    public function __construct(
+        private readonly CreateDraftUseCase $useCase,
+        private readonly DraftPayloadFactory $payloadFactory,
+    ) {}
+
+    /**
+     * Registers this handler's method with WordPress's XML-RPC server.
+     * Hooked to the `xmlrpc_methods` filter from Plugin.php, mirroring how
+     * DraftController registers itself on `rest_api_init`.
+     */
+    public function registerMethod(array $methods): array {
+        $methods['material_capture.createDraft'] = [$this, 'createDraft'];
+        return $methods;
+    }
+
+    /**
+     * @param array $args Positional params per docs/api-spec.md's XML-RPC section:
+     *   [username, applicationPassword, title, url, sharedText, memo, source, sharedAt]
+     */
+    public function createDraft(array $args, wp_xmlrpc_server $server): array|IXR_Error {
+        [$username, $password, $title, $url, $sharedText, $memo, $source, $sharedAt] =
+            array_pad($args, 8, null);
+
+        // WordPress core's own credential check -- Application Passwords work here
+        // natively, not just for REST. A failure here is WordPress core's error, not
+        // ours -- see docs/security.md's division of responsibility.
+        if (!$server->login((string) $username, (string) $password)) {
+            return $server->error;
+        }
+
+        if (!is_ssl()) {
+            return new IXR_Error(400, 'This endpoint requires HTTPS.');
+        }
+        if (!current_user_can('edit_posts')) {
+            return new IXR_Error(403, 'The authenticated user does not have permission to create posts.');
+        }
+
+        try {
+            $payload = $this->payloadFactory->fromArray([
+                'title' => $title,
+                'url' => $url,
+                'shared_text' => $sharedText,
+                'memo' => $memo,
+                'source' => $source,
+                'shared_at' => $sharedAt,
+            ]);
+        } catch (InvalidPayloadException $exception) {
+            return new IXR_Error(400, $exception->getMessage());
+        }
+
+        try {
+            $result = $this->useCase->create($payload, get_current_user_id());
+        } catch (CategoryUnavailableException $exception) {
+            return new IXR_Error(409, $exception->getMessage());
+        } catch (DraftCreationFailedException $exception) {
+            return new IXR_Error(500, $exception->getMessage());
+        }
+
+        return [
+            'post_id' => $result->postId,
+            'status' => $result->status,
+            'title' => $result->title,
+            'edit_url' => $result->editUrl,
+            'preview_url' => $result->previewUrl,
+            'category' => $result->category,
+            'created_at' => $result->createdAt->format(DATE_ATOM),
+        ];
+    }
+}
+```
+
+Deliberately **not** a `WP_REST_Controller`-style class — WordPress's XML-RPC server has its own convention (a plain class with a method matching the registered callback signature `(array $args, wp_xmlrpc_server $server)`), so `DraftXmlRpcHandler` follows that convention rather than forcing REST's shape onto it. The response-building (success struct, `IXR_Error` construction) is small enough here that a separate `XmlRpcResponseFactory` (mirroring REST's `RestResponseFactory`) isn't warranted yet — revisit only if this class grows.
+
+### `Plugin.php` changes
+
+```php
+public function registerRoutes(): void {
+    // existing REST wiring unchanged
+    ...
+}
+
+public function registerXmlRpcMethods(): void {
+    $handler = new DraftXmlRpcHandler(
+        new CreateDraftService(new WpPostRepository(), new PostBodyTemplate()),
+        new DraftPayloadFactory(new WordPressInputSanitizer()),
+    );
+    add_filter('xmlrpc_methods', [$handler, 'registerMethod']);
+}
+```
+
+Bootstrap (`material-capture.php`) adds one line: `add_action('xmlrpc_init', [$plugin, 'registerXmlRpcMethods']);` (or hooks `xmlrpc_methods` directly — exact hook TBD at implementation time, either is standard).
+
+## Error mapping (extends the REST table in docs/api-spec.md)
+
+Already fully specified in [docs/api-spec.md's XML-RPC section](api-spec.md#xml-rpc-fallback-material_capturecreatedraft) — this doc doesn't repeat it, since the source of truth for wire-level codes belongs there, matching how Phase 2's REST error table works.
+
+## Test plan
+
+Same tooling and philosophy as [docs/phase2-wordpress-plugin-design.md#test-plan](phase2-wordpress-plugin-design.md#test-plan): PHPUnit + Brain\Monkey (for `is_ssl`, `current_user_can`, `get_current_user_id`, and stubbing the `wp_xmlrpc_server`/`IXR_Error` types) + Mockery (for `CreateDraftUseCase`, mocked as an interface, not `DraftPayloadFactory`'s concrete class — reusing the exact same pattern `DraftControllerTest` already established).
+
+- `DraftXmlRpcHandlerTest`:
+  - `login()` failure on the (mocked) `wp_xmlrpc_server` → returns `$server->error` unchanged, use case never called
+  - Plain HTTP (`is_ssl` stubbed false) → `IXR_Error(400, ...)`, use case never called
+  - Missing `edit_posts` capability → `IXR_Error(403, ...)`
+  - Invalid payload (missing title/url) → `IXR_Error(400, ...)` with the real `DraftPayloadFactory` (not mocked, same approach as `DraftControllerTest`'s "missing url" test) rejecting it for real
+  - `CategoryUnavailableException`/`DraftCreationFailedException` from the (mocked) use case → `IXR_Error(409, ...)` / `IXR_Error(500, ...)` respectively
+  - Successful case → struct with all seven fields matching the mocked `DraftResult`
+
+Deferred to Phase 4 (or a manual production check, given this feature exists specifically because of one real host's behavior): confirming `wp_xmlrpc_server::login()` actually accepts a real Application Password end-to-end. This is the one place this design doc recommends a manual production verification step *in addition to* Phase 4's normal scope, since the entire feature's premise rests on an assumption (Application Passwords work for WordPress core's XML-RPC authentication) that should be confirmed empirically against the real host before considering Phase 2d done.
+
+## Non-goals for Phase 2d
+
+- No other WordPress core XML-RPC methods (`wp.newPost`, etc.) are touched, wrapped, or exposed by this plugin — only the one custom method.
+- No change to whether XML-RPC is enabled/disabled on a site — this plugin neither enables nor disables `xmlrpc.php`, it only adds a method if the server is already reachable.
+- No XML-RPC-specific rate limiting beyond what already applies to REST (same non-goal as [docs/api-spec.md#rate-limiting](api-spec.md#rate-limiting)).
+
+## Open questions for review
+
+1. **Hook choice**: `xmlrpc_methods` filter vs. the more specific `xmlrpc_methods` combined with checking `wp_is_application_passwords_available()` explicitly before registering (defensive, in case a site has disabled Application Passwords entirely) — leaning toward registering unconditionally and letting `login()` fail naturally, but flagging as a choice rather than assuming.
+2. **`IXR_Error` message localization**: REST's messages are already in English (developer-facing) per the existing `DraftController`; keeping XML-RPC's `IXR_Error` messages in the same style for consistency, rather than the Japanese-facing text the Android app shows — confirm this is fine (Android's `MaterialCaptureErrorMapper`/`toPresentation()` already own the user-facing Japanese text regardless of transport).
