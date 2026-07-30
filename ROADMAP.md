@@ -89,21 +89,23 @@ Added after main-PC smoke testing found that production hosting (dopodomani.biz)
 
 **Confirmed boundary in this environment, now closed by CI:** `:app:compileDebugKotlin` had failed here with `SDK location not found` — expected, since this environment has no Android SDK (see [docs/development.md](docs/development.md)). Android CI's first real run against the actual SDK caught several genuine bugs invisible without one: an illegal `--` inside an `AndroidManifest.xml` XML comment (broke the manifest merger), `:core`'s Retrofit/OkHttp/kotlinx.serialization dependencies declared `implementation` instead of `api` (hid those types from `:app`'s own code), two Compose files missing `import androidx.compose.runtime.getValue` (breaks `by collectAsState()`), `PasswordVisualTransformation` imported from the wrong package, and Robolectric 4.13 not yet supporting API 35 (fixed with `@Config(sdk = [34])` on both Robolectric tests). All fixed; `:core:test`, `:core:ktlintCheck`, `:app:testDebugUnitTest`, `:app:lintDebug`, and `:app:assembleDebug` are now green together on GitHub Actions. **Still unverified even with CI green: real UI rendering, real Share Target sheet, real device/emulator behavior — that's exactly what the new main-PC smoke test item above covers.**
 
-### Phase 3c — XML-RPC fallback (design)
+### Phase 3c — XML-RPC fallback (design) ✅ complete
 
 Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per site in Settings, since some hosting (confirmed: dopodomani.biz) can't authenticate REST's Basic Auth at all.
 
 **Definition of Done:**
-- [ ] [docs/phase3c-android-xmlrpc-design.md](docs/phase3c-android-xmlrpc-design.md) written: `ConnectionMethod` setting, `CompositeWordPressDestination` selection design, hand-rolled XML-RPC request/response codec (no new library dependency), Settings screen changes, test plan
-- [ ] `docs/phase3-android-app-design.md` cross-referenced/updated where the `Destination`/Settings design is affected
-- [ ] Design reviewed and explicitly approved by the user — **implementation does not begin until this box is checked**
+- [x] [docs/phase3c-android-xmlrpc-design.md](docs/phase3c-android-xmlrpc-design.md) written: `ConnectionMethod` setting, `WordPressPublisher`/`WordPressPublisherFactory` selection design, hand-rolled XML-RPC request/response codec (no new library dependency), Settings screen changes, test plan
+- [x] `docs/phase3-android-app-design.md` cross-referenced/updated where the `Destination`/Settings design is affected
+- [x] Design reviewed and explicitly approved by the user (with amendments: `WordPressPublisher` naming, `XML_RPC` default, `Logger` port) — implementation proceeds in Phase 3d
 
-### Phase 3d — XML-RPC fallback (implementation, blocked until 3c is approved)
+### Phase 3d — XML-RPC fallback (implementation, current)
 
 **Definition of Done:**
-- [ ] `AppSettings` gains a `connectionMethod` field (`REST` default, `XML_RPC` alternative); Settings screen exposes the choice
-- [ ] `WordPressXmlRpcDestination` (new `:core` class) implements the same `Destination` interface as the existing REST implementation (renamed `WordPressRestDestination`); `CompositeWordPressDestination` picks between them per current settings — `ConfirmDraftViewModel`/`SubmitCaptureUseCase` unchanged
-- [ ] MockWebServer-based tests for the XML-RPC path, mirroring `WordPressDestinationTest`'s coverage
+- [ ] `AppSettings` gains a `connectionMethod` field (default `XML_RPC`, `REST` alternative); Settings screen exposes the choice, XML-RPC listed first
+- [ ] `WordPressPublisher` interface + `RestPublisher`/`XmlRpcPublisher` implementations; `WordPressPublisherFactory` selects between them from current settings; `WordPressDestination` (unchanged name, unchanged `Destination` binding) delegates to the factory — `ConfirmDraftViewModel`/`SubmitCaptureUseCase` unchanged
+- [ ] `Logger` port added to `:core` (Android-free) with an `AndroidLogger` implementation in `:app`; `WordPressDestination` logs "Publishing via XML_RPC"/"Publishing via REST" on every send
+- [ ] MockWebServer-based tests for the XML-RPC path, mirroring the existing REST test's coverage
+- [ ] No automatic REST↔XML-RPC fallback or auto-detection anywhere
 - [ ] ktlint clean, CI green
 - [ ] Manual verification against the production host that switching to XML-RPC succeeds where REST does not
 
