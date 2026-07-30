@@ -119,3 +119,24 @@ if (!class_exists('WP_REST_Controller')) {
         protected $rest_base = '';
     }
 }
+
+if (!class_exists('IXR_Error')) {
+    class IXR_Error
+    {
+        public function __construct(public int $code, public string $message)
+        {
+        }
+    }
+}
+
+if (!class_exists('wp_xmlrpc_server')) {
+    class wp_xmlrpc_server
+    {
+        public ?IXR_Error $error = null;
+
+        public function login(string $username, string $password): bool
+        {
+            return true;
+        }
+    }
+}

@@ -31,3 +31,7 @@ register_deactivation_hook(__FILE__, [Plugin::class, 'deactivate']);
 add_action('rest_api_init', static function (): void {
     (new Plugin())->registerRoutes();
 });
+
+add_action('xmlrpc_init', static function (): void {
+    (new Plugin())->registerXmlRpcMethods();
+});

@@ -1,6 +1,6 @@
 # Phase 2c Design — WordPress Plugin XML-RPC Fallback
 
-**Status: awaiting review.** This document is the reviewable design artifact for Phase 2c. No XML-RPC code exists yet — per [ROADMAP.md](../ROADMAP.md#process), implementation (Phase 2d) starts only after this doc is explicitly approved, exactly as Phases 2a/3a were gated. It refines [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport), [docs/api-spec.md](api-spec.md#xml-rpc-fallback-material_capturecreatedraft), and [docs/security.md](security.md#xml-rpc-fallback-transport-phase-2c2d-designed-not-yet-built) into concrete classes and method signatures.
+**Status: approved (2026-07-30), proceeding to Phase 2d.** This document is the reviewable design artifact for Phase 2c. It refines [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport), [docs/api-spec.md](api-spec.md#xml-rpc-fallback-material_capturecreatedraft), and [docs/security.md](security.md#xml-rpc-fallback-transport-phase-2c2d-designed-not-yet-built) into concrete classes and method signatures.
 
 ## Why this exists
 
@@ -164,7 +164,7 @@ Deferred to Phase 4 (or a manual production check, given this feature exists spe
 - No change to whether XML-RPC is enabled/disabled on a site — this plugin neither enables nor disables `xmlrpc.php`, it only adds a method if the server is already reachable.
 - No XML-RPC-specific rate limiting beyond what already applies to REST (same non-goal as [docs/api-spec.md#rate-limiting](api-spec.md#rate-limiting)).
 
-## Open questions for review
+## Resolved review questions (2026-07-30)
 
-1. **Hook choice**: `xmlrpc_methods` filter vs. the more specific `xmlrpc_methods` combined with checking `wp_is_application_passwords_available()` explicitly before registering (defensive, in case a site has disabled Application Passwords entirely) — leaning toward registering unconditionally and letting `login()` fail naturally, but flagging as a choice rather than assuming.
-2. **`IXR_Error` message localization**: REST's messages are already in English (developer-facing) per the existing `DraftController`; keeping XML-RPC's `IXR_Error` messages in the same style for consistency, rather than the Japanese-facing text the Android app shows — confirm this is fine (Android's `MaterialCaptureErrorMapper`/`toPresentation()` already own the user-facing Japanese text regardless of transport).
+1. **Hook choice**: registers unconditionally via `xmlrpc_methods`, no `wp_is_application_passwords_available()` pre-check — `login()` failing naturally is enough, matching REST's own lack of a defensive pre-check for the equivalent condition.
+2. **`IXR_Error` message localization**: English (developer-facing), matching `DraftController`'s existing REST error messages. `MaterialCaptureErrorMapper`/`toPresentation()` on the Android side already own all user-facing Japanese text regardless of transport.
