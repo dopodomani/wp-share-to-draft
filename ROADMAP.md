@@ -101,13 +101,13 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 ### Phase 3d — XML-RPC fallback (implementation, current)
 
 **Definition of Done:**
-- [ ] `AppSettings` gains a `connectionMethod` field (default `XML_RPC`, `REST` alternative); Settings screen exposes the choice, XML-RPC listed first
-- [ ] `WordPressPublisher` interface + `RestPublisher`/`XmlRpcPublisher` implementations; `WordPressPublisherFactory` selects between them from current settings; `WordPressDestination` (unchanged name, unchanged `Destination` binding) delegates to the factory — `ConfirmDraftViewModel`/`SubmitCaptureUseCase` unchanged
-- [ ] `Logger` port added to `:core` (Android-free) with an `AndroidLogger` implementation in `:app`; `WordPressDestination` logs "Publishing via XML_RPC"/"Publishing via REST" on every send
-- [ ] MockWebServer-based tests for the XML-RPC path, mirroring the existing REST test's coverage
-- [ ] No automatic REST↔XML-RPC fallback or auto-detection anywhere
-- [ ] ktlint clean, CI green
-- [ ] Manual verification against the production host that switching to XML-RPC succeeds where REST does not
+- [x] `AppSettings` gains a `connectionMethod` field (default `XML_RPC`, `REST` alternative); Settings screen exposes the choice, XML-RPC listed first
+- [x] `WordPressPublisher` interface + `RestPublisher`/`XmlRpcPublisher` implementations; `WordPressPublisherFactory` selects between them from current settings; `WordPressDestination` (unchanged name, unchanged `Destination` binding) delegates to the factory — `ConfirmDraftViewModel`/`SubmitCaptureUseCase` unchanged
+- [x] `Logger` port added to `:core` (Android-free) with an `AndroidLogger` implementation in `:app`; `WordPressDestination` logs "Publishing via XML_RPC"/"Publishing via REST" on every send
+- [x] MockWebServer-based tests for the XML-RPC path, mirroring the existing REST test's coverage
+- [x] No automatic REST↔XML-RPC fallback or auto-detection anywhere
+- [x] ktlint clean; `:core:test`, `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` all pass locally — CI still to confirm on the PR
+- [ ] Manual verification against the production host that switching to XML-RPC succeeds where REST does not (blocked on Phase 2d — the plugin's `material_capture.createDraft` XML-RPC method isn't implemented/deployed yet)
 
 ## Phase 4 — Integration testing
 
