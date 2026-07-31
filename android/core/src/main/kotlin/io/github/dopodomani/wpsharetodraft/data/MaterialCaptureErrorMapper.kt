@@ -52,4 +52,33 @@ class MaterialCaptureErrorMapper
                 is SSLException -> CaptureError.Network.SslFailure
                 else -> CaptureError.Network.Unreachable
             }
+
+        /**
+         * XML-RPC faults carry only a `faultCode`/`faultString`, no `code` string like REST's
+         * error body -- see docs/api-spec.md's XML-RPC fault table. `faultCode` 403 covers both
+         * this plugin's `insufficient_capability` and WordPress core's own
+         * `wp_xmlrpc_server::login()` failure ("Incorrect username or password"), so those two
+         * are told apart by inspecting `faultString`, mirroring REST's division of
+         * responsibility between core auth (401) and this plugin's own checks (403).
+         */
+        fun fromXmlRpcFault(fault: XmlRpcResult.Fault): CaptureError {
+            val message = fault.faultString
+            return when (fault.faultCode) {
+                400 ->
+                    if (message.contains("https", ignoreCase = true)) {
+                        CaptureError.HttpsRequired
+                    } else {
+                        CaptureError.Validation(field = "unknown", message = message)
+                    }
+                403 ->
+                    if (message.contains("username", ignoreCase = true) || message.contains("password", ignoreCase = true)) {
+                        CaptureError.Unauthenticated
+                    } else {
+                        CaptureError.InsufficientCapability
+                    }
+                409 -> CaptureError.CategoryUnavailable
+                500 -> CaptureError.ServerError(message)
+                else -> CaptureError.Unknown(message)
+            }
+        }
     }

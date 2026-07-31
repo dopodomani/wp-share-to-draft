@@ -13,8 +13,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.dopodomani.wpsharetodraft.domain.CaptureError
@@ -54,6 +58,21 @@ fun ConfirmDraftScreen(
     }
 }
 
+/**
+ * Each field keeps its own local [TextFieldValue] as the single source of truth for what's
+ * rendered, so mid-conversion Japanese IME state ("未確定文字列") survives -- rendering
+ * directly from `state` (a value that round-trips through the ViewModel's StateFlow on every
+ * keystroke) was confirmed to break IME composition.
+ *
+ * Keyed on `state.item.sharedAt` rather than left unkeyed or reconciled by comparing values
+ * on every recomposition: `sharedAt` is the one field none of `onTitleChanged`/
+ * `onUrlChanged`/`onMemoChanged` ever touches, so it's a stable identity for "this share
+ * session" that only changes when a genuinely new item arrives (`initialize()`) -- unlike a
+ * per-recomposition value comparison, which raced against `collectAsState()`'s StateFlow
+ * collection (arriving on a later frame than the field's own snapshot-state write) and
+ * stomped the just-typed character back to the stale value on almost every keystroke,
+ * breaking IME composition even worse than reading `state` directly did.
+ */
 @Composable
 private fun IdleContent(
     state: ConfirmDraftUiState.Idle,
@@ -63,22 +82,35 @@ private fun IdleContent(
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    var titleField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.title)) }
+    var urlField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.url)) }
+    var memoField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
-            value = state.item.title,
-            onValueChange = onTitleChanged,
+            value = titleField,
+            onValueChange = {
+                titleField = it
+                onTitleChanged(it.text)
+            },
             label = { Text("タイトル") },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
-            value = state.item.url,
-            onValueChange = onUrlChanged,
+            value = urlField,
+            onValueChange = {
+                urlField = it
+                onUrlChanged(it.text)
+            },
             label = { Text("URL") },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
-            value = state.item.memo ?: "",
-            onValueChange = onMemoChanged,
+            value = memoField,
+            onValueChange = {
+                memoField = it
+                onMemoChanged(it.text)
+            },
             label = { Text("メモ") },
             modifier = Modifier.fillMaxWidth(),
         )

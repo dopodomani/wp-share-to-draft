@@ -1,6 +1,6 @@
 # Phase 2c Design — WordPress Plugin XML-RPC Fallback
 
-**Status: awaiting review.** This document is the reviewable design artifact for Phase 2c. No XML-RPC code exists yet — per [ROADMAP.md](../ROADMAP.md#process), implementation (Phase 2d) starts only after this doc is explicitly approved, exactly as Phases 2a/3a were gated. It refines [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport), [docs/api-spec.md](api-spec.md#xml-rpc-fallback-material_capturecreatedraft), and [docs/security.md](security.md#xml-rpc-fallback-transport-phase-2c2d-designed-not-yet-built) into concrete classes and method signatures.
+**Status: approved (2026-07-30), proceeding to Phase 2d.** This document is the reviewable design artifact for Phase 2c. It refines [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport), [docs/api-spec.md](api-spec.md#xml-rpc-fallback-material_capturecreatedraft), and [docs/security.md](security.md#xml-rpc-fallback-transport-phase-2c2d-designed-not-yet-built) into concrete classes and method signatures.
 
 ## Why this exists
 
@@ -67,15 +67,17 @@ final class DraftXmlRpcHandler {
      * @param array $args Positional params per docs/api-spec.md's XML-RPC section:
      *   [username, applicationPassword, title, url, sharedText, memo, source, sharedAt]
      */
-    public function createDraft(array $args, wp_xmlrpc_server $server): array|IXR_Error {
+    public function createDraft(array $args): array|IXR_Error {
+        global $wp_xmlrpc_server;
+
         [$username, $password, $title, $url, $sharedText, $memo, $source, $sharedAt] =
             array_pad($args, 8, null);
 
         // WordPress core's own credential check -- Application Passwords work here
         // natively, not just for REST. A failure here is WordPress core's error, not
         // ours -- see docs/security.md's division of responsibility.
-        if (!$server->login((string) $username, (string) $password)) {
-            return $server->error;
+        if (!$wp_xmlrpc_server->login((string) $username, (string) $password)) {
+            return $wp_xmlrpc_server->error;
         }
 
         if (!is_ssl()) {
@@ -119,7 +121,9 @@ final class DraftXmlRpcHandler {
 }
 ```
 
-Deliberately **not** a `WP_REST_Controller`-style class — WordPress's XML-RPC server has its own convention (a plain class with a method matching the registered callback signature `(array $args, wp_xmlrpc_server $server)`), so `DraftXmlRpcHandler` follows that convention rather than forcing REST's shape onto it. The response-building (success struct, `IXR_Error` construction) is small enough here that a separate `XmlRpcResponseFactory` (mirroring REST's `RestResponseFactory`) isn't warranted yet — revisit only if this class grows.
+Deliberately **not** a `WP_REST_Controller`-style class — WordPress's XML-RPC server has its own convention (a plain class with a method matching the registered callback signature), so `DraftXmlRpcHandler` follows that convention rather than forcing REST's shape onto it. The response-building (success struct, `IXR_Error` construction) is small enough here that a separate `XmlRpcResponseFactory` (mirroring REST's `RestResponseFactory`) isn't warranted yet — revisit only if this class grows.
+
+**Corrected during implementation (2026-07-31):** the original draft of this doc gave `createDraft` a `(array $args, wp_xmlrpc_server $server)` signature, modeled loosely on `DraftController`'s `(WP_REST_Request $request)` shape. This was wrong: WordPress's real XML-RPC dispatcher (`IXR_Server::call()`) invokes `xmlrpc_methods` callbacks as `call_user_func($callback, $args)` — a single argument, never a second server instance. The two-argument signature caused a fatal `ArgumentCountError` on every real call (WordPress's own fatal-error handler caught it and returned a generic `faultCode 500` — this is what production testing against dopodomani.biz surfaced, distinct from the `xmlrpc_init` issue above). Fixed by dropping the second parameter and reaching the active server via the `$wp_xmlrpc_server` global instead, matching WordPress's own Codex examples for custom XML-RPC methods.
 
 ### `Plugin.php` changes
 
@@ -138,7 +142,7 @@ public function registerXmlRpcMethods(): void {
 }
 ```
 
-Bootstrap (`material-capture.php`) adds one line: `add_action('xmlrpc_init', [$plugin, 'registerXmlRpcMethods']);` (or hooks `xmlrpc_methods` directly — exact hook TBD at implementation time, either is standard).
+**Corrected during implementation (2026-07-31):** the original draft of this doc proposed `add_action('xmlrpc_init', [$plugin, 'registerXmlRpcMethods']);` in the bootstrap. **WordPress core has no `xmlrpc_init` action** — `xmlrpc_methods` is a plain filter, only ever applied by core when `xmlrpc.php` itself constructs its server. Hooking a nonexistent action meant `registerXmlRpcMethods()` was never called and the method silently never registered — caught via manual production verification (`system.listMethods` didn't list `material_capture.createDraft`, even though the REST route was confirmed present). Fixed by calling `(new Plugin())->registerXmlRpcMethods()` unconditionally at plugin load time in `material-capture.php`, with no wrapping action — the standard pattern (this is how core plugins like Jetpack add their own XML-RPC methods too).
 
 ## Error mapping (extends the REST table in docs/api-spec.md)
 
@@ -164,7 +168,7 @@ Deferred to Phase 4 (or a manual production check, given this feature exists spe
 - No change to whether XML-RPC is enabled/disabled on a site — this plugin neither enables nor disables `xmlrpc.php`, it only adds a method if the server is already reachable.
 - No XML-RPC-specific rate limiting beyond what already applies to REST (same non-goal as [docs/api-spec.md#rate-limiting](api-spec.md#rate-limiting)).
 
-## Open questions for review
+## Resolved review questions (2026-07-30)
 
-1. **Hook choice**: `xmlrpc_methods` filter vs. the more specific `xmlrpc_methods` combined with checking `wp_is_application_passwords_available()` explicitly before registering (defensive, in case a site has disabled Application Passwords entirely) — leaning toward registering unconditionally and letting `login()` fail naturally, but flagging as a choice rather than assuming.
-2. **`IXR_Error` message localization**: REST's messages are already in English (developer-facing) per the existing `DraftController`; keeping XML-RPC's `IXR_Error` messages in the same style for consistency, rather than the Japanese-facing text the Android app shows — confirm this is fine (Android's `MaterialCaptureErrorMapper`/`toPresentation()` already own the user-facing Japanese text regardless of transport).
+1. **Hook choice**: registers unconditionally via `xmlrpc_methods`, no `wp_is_application_passwords_available()` pre-check — `login()` failing naturally is enough, matching REST's own lack of a defensive pre-check for the equivalent condition.
+2. **`IXR_Error` message localization**: English (developer-facing), matching `DraftController`'s existing REST error messages. `MaterialCaptureErrorMapper`/`toPresentation()` on the Android side already own all user-facing Japanese text regardless of transport.

@@ -12,6 +12,7 @@ use MaterialCapture\Infrastructure\WordPressInputSanitizer;
 use MaterialCapture\Infrastructure\WpPostRepository;
 use MaterialCapture\Rest\DraftController;
 use MaterialCapture\Rest\RestResponseFactory;
+use MaterialCapture\XmlRpc\DraftXmlRpcHandler;
 
 /**
  * Composition root. No DI container — the object graph here is small enough that manual
@@ -48,5 +49,26 @@ final class Plugin
 
         $controller = new DraftController($useCase, $payloadFactory, new RestResponseFactory());
         $controller->register_routes();
+    }
+
+    /**
+     * Called unconditionally from the plugin bootstrap (no wrapping action -- WordPress core
+     * has no `xmlrpc_init` action; `xmlrpc_methods` is a plain filter applied only when
+     * xmlrpc.php itself constructs its server, so registering it early/always is cheap and
+     * correct, exactly like registerRoutes()'s `rest_api_init` registration). Wires the same
+     * object graph into a second, XML-RPC adapter over the identical
+     * CreateDraftUseCase/DraftPayloadFactory -- see docs/phase2c-xmlrpc-design.md#layering.
+     * Registers unconditionally (no wp_is_application_passwords_available() pre-check); a
+     * disabled/misconfigured Application Passwords setup surfaces as a normal login() failure
+     * instead.
+     */
+    public function registerXmlRpcMethods(): void
+    {
+        $sanitizer = new WordPressInputSanitizer();
+        $payloadFactory = new DraftPayloadFactory($sanitizer);
+        $useCase = new CreateDraftService(new WpPostRepository(), new PostBodyTemplate());
+
+        $handler = new DraftXmlRpcHandler($useCase, $payloadFactory);
+        add_filter('xmlrpc_methods', [$handler, 'registerMethod']);
     }
 }

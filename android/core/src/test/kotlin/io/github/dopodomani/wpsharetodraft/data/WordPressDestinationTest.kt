@@ -5,6 +5,8 @@ import io.github.dopodomani.wpsharetodraft.domain.AppSettings
 import io.github.dopodomani.wpsharetodraft.domain.CaptureError
 import io.github.dopodomani.wpsharetodraft.domain.CaptureException
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
+import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
+import io.github.dopodomani.wpsharetodraft.domain.Logger
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -12,7 +14,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.SocketPolicy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -23,15 +24,16 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
- * Exercises [WordPressDestination] against an in-process fake HTTP server (OkHttp's
- * MockWebServer) -- no live WordPress instance, still runs with no network/device. See
- * docs/phase2-wordpress-plugin-design.md#integration-test-scope-designed-separately-gates-phase-4
- * for the (real-WordPress) integration layer this deliberately does NOT replace.
+ * Now a thin dispatcher test: [WordPressDestination] itself no longer talks HTTP directly --
+ * that's [RestPublisherTest]/`XmlRpcPublisherTest`'s job. Wires a real
+ * [WordPressPublisherFactory] over real [RestPublisher]/[XmlRpcPublisher] instances pointed at
+ * the same MockWebServer, and asserts (a) it fails fast with no settings, (b) it hits the
+ * right endpoint for the current `connectionMethod`, and (c) it logs which transport was used.
+ * See docs/phase3c-android-xmlrpc-design.md.
  */
 class WordPressDestinationTest {
     private lateinit var server: MockWebServer
-    private lateinit var api: MaterialCaptureApi
-    private lateinit var settingsRepository: SettingsRepository
+    private lateinit var factory: WordPressPublisherFactory
 
     private val item =
         CaptureItem(
@@ -47,21 +49,19 @@ class WordPressDestinationTest {
     fun setUp() {
         server = MockWebServer()
         server.start()
-        settingsRepository = fakeSettings()
 
+        val errorMapper = MaterialCaptureErrorMapper()
+        val httpClient = OkHttpClient.Builder().callTimeout(500, TimeUnit.MILLISECONDS).build()
         val json = Json { ignoreUnknownKeys = true }
-        val client =
-            OkHttpClient.Builder()
-                .addInterceptor(AuthInterceptor(settingsRepository))
-                .callTimeout(500, TimeUnit.MILLISECONDS)
-                .build()
         val retrofit =
             Retrofit.Builder()
                 .baseUrl(server.url("/"))
-                .client(client)
+                .client(httpClient)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
-        api = retrofit.create(MaterialCaptureApi::class.java)
+        val restPublisher = RestPublisher(retrofit.create(MaterialCaptureApi::class.java), errorMapper)
+        val xmlRpcPublisher = XmlRpcPublisher(MaterialCaptureXmlRpcApi(httpClient), errorMapper)
+        factory = WordPressPublisherFactory(xmlRpcPublisher, restPublisher)
     }
 
     @AfterEach
@@ -70,84 +70,69 @@ class WordPressDestinationTest {
     }
 
     @Test
-    fun `sends a POST with a basic auth header and maps a 201 to a DraftResult`() =
-        runTest {
-            server.enqueue(
-                MockResponse()
-                    .setResponseCode(201)
-                    .setBody(
-                        """
-                        {"post_id":1,"status":"draft","title":"[INBOX] Title",
-                         "edit_url":"https://x/edit","preview_url":"https://x/preview",
-                         "category":"素材候補","created_at":"2026-07-28T09:15:03Z"}
-                        """.trimIndent(),
-                    ),
-            )
-
-            val result = destination().send(item)
-
-            assertTrue(result.isSuccess)
-            assertEquals(1L, result.getOrThrow().postId)
-
-            val recorded = server.takeRequest()
-            assertEquals("POST", recorded.method)
-            assertTrue(recorded.getHeader("Authorization")?.startsWith("Basic ") == true)
-        }
-
-    @Test
-    fun `maps a 400 invalid_url response to Validation`() =
-        runTest {
-            server.enqueue(
-                MockResponse().setResponseCode(400).setBody("""{"code":"invalid_url","message":"bad url"}"""),
-            )
-
-            val result = destination().send(item)
-
-            assertEquals(
-                CaptureError.Validation("invalid_url", "bad url"),
-                (result.exceptionOrNull() as CaptureException).error,
-            )
-        }
-
-    @Test
-    fun `maps a 401 response to Unauthenticated`() =
-        runTest {
-            server.enqueue(
-                MockResponse().setResponseCode(401).setBody("""{"code":"rest_not_logged_in","message":"..."}"""),
-            )
-
-            val result = destination().send(item)
-
-            assertEquals(CaptureError.Unauthenticated, (result.exceptionOrNull() as CaptureException).error)
-        }
-
-    @Test
     fun `no settings configured fails fast without making a network call`() =
         runTest {
-            val result = destination(unconfiguredSettings()).send(item)
+            val destination = WordPressDestination(factory, unconfiguredSettings(), FakeLogger())
+
+            val result = destination.send(item)
 
             assertEquals(CaptureError.SettingsNotConfigured, (result.exceptionOrNull() as CaptureException).error)
             assertEquals(0, server.requestCount)
         }
 
     @Test
-    fun `a dropped connection maps to Network Unreachable`() =
+    fun `hits xmlrpc php and logs XML_RPC when that's the current setting`() =
         runTest {
-            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setResponseCode(200).setBody(successXmlRpcResponse()))
+            val logger = FakeLogger()
+            val destination = WordPressDestination(factory, fixedSettings(ConnectionMethod.XML_RPC), logger)
 
-            val result = destination().send(item)
+            val result = destination.send(item)
 
-            assertEquals(CaptureError.Network.Unreachable, (result.exceptionOrNull() as CaptureException).error)
+            assertTrue(result.isSuccess)
+            assertEquals("/xmlrpc.php", server.takeRequest().path)
+            assertEquals(listOf("Publishing via XML_RPC"), logger.messages)
         }
 
-    private fun destination(repository: SettingsRepository = settingsRepository): WordPressDestination =
-        WordPressDestination(api, repository, MaterialCaptureErrorMapper())
+    @Test
+    fun `hits the REST endpoint and logs REST when that's the current setting`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(201).setBody(successRestResponse()))
+            val logger = FakeLogger()
+            val destination = WordPressDestination(factory, fixedSettings(ConnectionMethod.REST), logger)
 
-    private fun fakeSettings(): SettingsRepository =
+            val result = destination.send(item)
+
+            assertTrue(result.isSuccess)
+            assertEquals("/wp-json/material-capture/v1/draft", server.takeRequest().path)
+            assertEquals(listOf("Publishing via REST"), logger.messages)
+        }
+
+    private fun successRestResponse(): String =
+        """
+        {"post_id":1,"status":"draft","title":"[INBOX] Title",
+         "edit_url":"https://x/edit","preview_url":"https://x/preview",
+         "category":"素材候補","created_at":"2026-07-28T09:15:03Z"}
+        """.trimIndent()
+
+    private fun successXmlRpcResponse(): String =
+        """
+        <?xml version="1.0"?><methodResponse><params><param><value><struct>
+        <member><name>post_id</name><value><int>1</int></value></member>
+        <member><name>status</name><value><string>draft</string></value></member>
+        <member><name>title</name><value><string>[INBOX] Title</string></value></member>
+        <member><name>edit_url</name><value><string>https://x/edit</string></value></member>
+        <member><name>preview_url</name><value><string>https://x/preview</string></value></member>
+        <member><name>category</name><value><string>素材候補</string></value></member>
+        <member><name>created_at</name><value><string>2026-07-28T09:15:03Z</string></value></member>
+        </struct></value></param></params></methodResponse>
+        """.trimIndent()
+
+    private fun fixedSettings(connectionMethod: ConnectionMethod): SettingsRepository =
         object : SettingsRepository {
             override suspend fun hasSettings() = true
 
-            override suspend fun get() = AppSettings(server.url("/").toString().trimEnd('/'), "user", "app-password")
+            override suspend fun get() = AppSettings(server.url("/").toString().trimEnd('/'), "user", "app-password", connectionMethod)
 
             override suspend fun save(settings: AppSettings) {}
         }
@@ -160,4 +145,15 @@ class WordPressDestinationTest {
 
             override suspend fun save(settings: AppSettings) {}
         }
+
+    private class FakeLogger : Logger {
+        val messages = mutableListOf<String>()
+
+        override fun d(
+            tag: String,
+            message: String,
+        ) {
+            messages += message
+        }
+    }
 }

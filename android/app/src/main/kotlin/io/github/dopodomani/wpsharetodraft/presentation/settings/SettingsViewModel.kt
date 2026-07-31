@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.dopodomani.wpsharetodraft.domain.AppSettings
+import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,8 @@ class SettingsViewModel
 
         fun onApplicationPasswordChanged(value: String) = updateEditing { it.copy(applicationPassword = value, validationError = null) }
 
+        fun onConnectionMethodChanged(value: ConnectionMethod) = updateEditing { it.copy(connectionMethod = value) }
+
         fun save() {
             val current = _uiState.value
             if (current !is SettingsUiState.Editing) return
@@ -43,6 +46,7 @@ class SettingsViewModel
                         siteUrl = current.siteUrl.trimEnd('/'),
                         username = current.username,
                         applicationPassword = current.applicationPassword,
+                        connectionMethod = current.connectionMethod,
                     ),
                 )
                 _uiState.value = SettingsUiState.Saved
