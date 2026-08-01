@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -33,7 +36,15 @@ fun SettingsScreen(
 
     when (val state = uiState) {
         is SettingsUiState.Editing ->
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .safeDrawingPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
                     value = state.siteUrl,
                     onValueChange = viewModel::onSiteUrlChanged,
@@ -80,7 +91,7 @@ fun SettingsScreen(
             // screen. See docs/phase3-android-smoke-test-results.md's 2026-07-30 entry.
             LaunchedEffect(Unit) { onSaved() }
             Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
+                modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

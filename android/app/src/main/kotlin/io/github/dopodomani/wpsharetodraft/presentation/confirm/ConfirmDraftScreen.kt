@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
@@ -86,7 +89,15 @@ private fun IdleContent(
     var urlField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.url)) }
     var memoField by remember(state.item.sharedAt) { mutableStateOf(TextFieldValue(state.item.memo ?: "")) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         OutlinedTextField(
             value = titleField,
             onValueChange = {
@@ -126,7 +137,7 @@ private fun IdleContent(
 @Composable
 private fun LoadingContent() {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -139,7 +150,10 @@ private fun SuccessContent(
     state: ConfirmDraftUiState.Success,
     onDone: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text("下書きを作成しました: ${state.result.title}")
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
             Text("完了")
@@ -156,7 +170,10 @@ private fun ErrorContent(
 ) {
     val presentation = state.error.toPresentation()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(presentation.message)
         when (presentation.action) {
             ErrorAction.RETRY -> Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("再試行") }
