@@ -197,7 +197,8 @@ final class DraftPayload {
     ): self;
     // Plain-PHP invariant checks only (no WordPress, no InputSanitizer):
     //   - $title non-empty (trimmed), <= 300 chars (mb_strlen) -> missing_required_field / (length enforced upstream too)
-    //   - $url non-empty, filter_var($url, FILTER_VALIDATE_URL) truthy, scheme is http/https -> invalid_url
+    //   - $url, if non-empty: filter_var($url, FILTER_VALIDATE_URL) truthy, scheme is http/https -> invalid_url
+    //     ($url itself is optional since v1.1 -- see docs/tech-decisions.md#12-url-is-optional)
     // Assumes inputs are already sanitized by the caller (DraftPayloadFactory) — this constructor
     // is the last line of defense on shape/invariants, not where sanitization happens.
 }
@@ -333,8 +334,8 @@ Corrected in this revision — revision 1 created the category lazily on every r
 
 | Domain condition | HTTP status | `code` |
 |---|---|---|
-| `title` or `url` missing/empty after sanitization | 400 | `missing_required_field` |
-| `url` fails the `DraftPayload` invariant check | 400 | `invalid_url` |
+| `title` missing/empty after sanitization | 400 | `missing_required_field` |
+| `url` non-empty but fails the `DraftPayload` invariant check | 400 | `invalid_url` |
 | `shared_at` present but not a valid fixed-offset/`Z` timestamp | 400 | `invalid_shared_at` |
 | Request not over HTTPS | 400 | `https_required` |
 | No/invalid Application Password | *(WordPress core's own error)* | *(not this plugin's code — see [division of responsibility](#authentication--authorization-division-of-responsibility))* |
@@ -371,7 +372,7 @@ Revision 1's plan stubbed `sanitize_text_field()` to return a canned value and t
 
 ### Unit tests (Phase 2b Definition of Done — no live WordPress)
 
-- `DraftPayloadTest`: valid input constructs successfully; empty `title` or `url` throws `InvalidPayloadException('missing_required_field')`; malformed `url` throws `InvalidPayloadException('invalid_url')`; `source` defaults to whatever the factory already resolved (this class doesn't invent defaults for fields the factory owns); `sharedAt` accepted as `null` or a `DateTimeImmutable`.
+- `DraftPayloadTest`: valid input constructs successfully; empty `title` throws `InvalidPayloadException('missing_required_field')`; empty `url` is accepted (optional since v1.1 — see [docs/tech-decisions.md #12](tech-decisions.md#12-url-is-optional)); malformed (non-empty) `url` throws `InvalidPayloadException('invalid_url')`; `source` defaults to whatever the factory already resolved (this class doesn't invent defaults for fields the factory owns); `sharedAt` accepted as `null` or a `DateTimeImmutable`.
 - `DraftPayloadFactoryTest` (Mockery mock of `InputSanitizerInterface`): each raw field is passed through the correct sanitizer method; a present-but-malformed `shared_at` string produces `InvalidPayloadException('invalid_shared_at')`; delegates remaining construction to `DraftPayload::create()` and lets its exceptions surface unchanged.
 - `CreateDraftServiceTest` (Mockery mocks of `PostRepositoryInterface` and `PostBodyRendererInterface`): title is prefixed with `[INBOX] ` exactly once, including when the input title already has the prefix (idempotency); `resolveConfiguredCategoryId()` returning `null` surfaces as `CategoryUnavailableException`; `insertDraft` is invoked with the literal author id passed to `create()`; the returned `DraftResult` fields match the mocks' return values; a repository failure (mock throws) surfaces as `DraftCreationFailedException`.
 - `WordPressInputSanitizerTest` (Brain\Monkey): see the split above — delegation + this plugin's own truncation/default logic only.

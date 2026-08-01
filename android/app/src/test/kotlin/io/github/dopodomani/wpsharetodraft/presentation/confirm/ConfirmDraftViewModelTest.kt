@@ -67,15 +67,30 @@ class ConfirmDraftViewModelTest {
         }
 
     @Test
-    fun `isSaveEnabled is false when title or url is blank`() =
+    fun `isSaveEnabled is false when title is blank`() =
         runTest {
+            val viewModel = viewModel(succeedingDestination())
+
+            viewModel.uiState.test {
+                skipItems(1)
+                viewModel.initialize(item.copy(title = ""))
+                val state = awaitItem() as ConfirmDraftUiState.Idle
+                assertFalse(state.isSaveEnabled)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `isSaveEnabled is true when url is blank but title is present`() =
+        runTest {
+            // url is optional -- see docs/tech-decisions.md#12-url-is-optional.
             val viewModel = viewModel(succeedingDestination())
 
             viewModel.uiState.test {
                 skipItems(1)
                 viewModel.initialize(item.copy(url = ""))
                 val state = awaitItem() as ConfirmDraftUiState.Idle
-                assertFalse(state.isSaveEnabled)
+                assertTrue(state.isSaveEnabled)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -87,7 +102,7 @@ class ConfirmDraftViewModelTest {
 
             viewModel.uiState.test {
                 skipItems(1)
-                viewModel.initialize(item.copy(url = "")) // isSaveEnabled == false
+                viewModel.initialize(item.copy(title = "")) // isSaveEnabled == false
                 skipItems(1)
 
                 viewModel.save()

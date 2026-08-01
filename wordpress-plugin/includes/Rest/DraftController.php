@@ -51,7 +51,7 @@ final class DraftController extends WP_REST_Controller
                         ],
                         'url' => [
                             'type' => 'string',
-                            'required' => true,
+                            'required' => false,
                             'sanitize_callback' => 'esc_url_raw',
                         ],
                         'shared_text' => [

@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Changed
+- ADR #12: `url` is no longer a required field on `POST /draft` or `material_capture.createDraft` (docs/tech-decisions.md). Motivated by Chrome's "share selected text" action, which doesn't reliably include the source page's URL at all — requiring one client-side just moved that failure to a 400 after a network round-trip. `Domain\DraftPayload::create()` now only validates format (`http`/`https`, well-formed) when `url` is non-empty; the rendered post body omits the "元URL: " line entirely when absent. `docs/api-spec.md` updated (REST + XML-RPC param tables, error table). Android's `ConfirmDraftViewModel.isSaveEnabled` no longer requires `url`, only `title`.
+
 ### Added
 - `IntentParser` now pre-fills the Confirm screen's メモ field with Chrome's shared text (docs/phase3-android-app-design.md's IntentParser revision 2). Motivated by sharing a text *selection* (rather than a whole page) from Chrome: the selected text landed only in the invisible `sharedText` field, so it looked like nothing had been captured. `sharedText` keeps receiving the same value unchanged for its existing role (raw text sent to WordPress as `shared_text`). Confirmed on real devices that Chrome doesn't reliably include the source page's URL/title for a text-selection share (site-dependent) — that stays best-effort/empty-and-editable, unchanged from before.
 - Phase 1 design docs: architecture, API spec, tech decisions, security policy, roadmap.

@@ -80,5 +80,8 @@ class ConfirmDraftViewModel
             }
         }
 
-        private fun isSaveEnabled(item: CaptureItem): Boolean = item.title.isNotBlank() && item.url.isNotBlank()
+        // url is optional -- see docs/tech-decisions.md#12-url-is-optional. Chrome's "share
+        // selected text" action doesn't reliably include a source URL at all, and requiring
+        // one client-side would just move that failure to a 400 after a network round-trip.
+        private fun isSaveEnabled(item: CaptureItem): Boolean = item.title.isNotBlank()
     }

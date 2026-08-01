@@ -103,9 +103,10 @@ final class DraftControllerTest extends BrainMonkeyTestCase
         $useCase->shouldNotReceive('create');
 
         $controller = new DraftController($useCase, $this->passthroughFactory(), new RestResponseFactory());
-        // Missing url -> the real DraftPayloadFactory/DraftPayload rejects it for real,
-        // no exception mocking required.
-        $response = $controller->create_draft(new WP_REST_Request(['title' => 'Title']));
+        // Missing title -> the real DraftPayloadFactory/DraftPayload rejects it for real,
+        // no exception mocking required. (url is optional, so an absent url alone would not
+        // trigger this -- see docs/tech-decisions.md#12-url-is-optional.)
+        $response = $controller->create_draft(new WP_REST_Request([]));
 
         self::assertInstanceOf(WP_Error::class, $response);
         self::assertSame('missing_required_field', $response->get_error_code());

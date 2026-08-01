@@ -52,7 +52,7 @@ Creates a WordPress draft post from a shared item.
 | Field | Type | Required | Max length (via `mb_strlen`) | Notes |
 |---|---|---|---|---|
 | `title` | string | Yes | 300 chars | Original page title. Plugin prefixes it with `[INBOX] ` server-side, **idempotently** — if the client's title already starts with `[INBOX] ` (e.g. a retried submission), it is not prefixed twice. |
-| `url` | string (URL) | Yes | 2,048 chars | Must be an absolute `http`/`https` URL; validated with `esc_url_raw` server-side plus a plain-PHP format check in the domain layer (see [phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)). |
+| `url` | string (URL) | No | 2,048 chars | If present, must be an absolute `http`/`https` URL; validated with `esc_url_raw` server-side plus a plain-PHP format check in the domain layer (see [phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)). Optional since v1.1 — see [docs/tech-decisions.md #12](tech-decisions.md#12-url-is-optional) for why: Chrome's "share selected text" action doesn't reliably include the source page's URL at all. |
 | `shared_text` | string | No | 50,000 chars | Raw text captured from the Android `ACTION_SEND` extra, if the source app included any (e.g. a highlighted excerpt). |
 | `memo` | string | No | 10,000 chars | User-entered note from the confirmation screen. |
 | `source` | string | No | 64 chars | **Free-form** lowercase identifier, sanitized via `sanitize_key` (`[a-z0-9_-]`, lowercased) — not a fixed allowlist, so future capture sources (PWA, webhook, other clients) don't require a plugin update to identify themselves. Empty or fully-stripped input defaults to `unknown`. Used for the "共有元" field. |
@@ -80,8 +80,8 @@ There is no application-level total-body-size cap in v1 (the per-field limits ab
 
 | Status | Code | When | Who determines this |
 |---|---|---|---|
-| `400` | `missing_required_field` | `title` or `url` absent/empty after sanitization | plugin |
-| `400` | `invalid_url` | `url` fails validation | plugin |
+| `400` | `missing_required_field` | `title` absent/empty after sanitization | plugin |
+| `400` | `invalid_url` | `url` is present but fails validation | plugin |
 | `400` | `invalid_shared_at` | `shared_at` present but doesn't match the required timestamp format | plugin |
 | `400` | `https_required` | Request not made over HTTPS | plugin (checked before authentication) |
 | `401` | *(WordPress's own error shape, e.g. `rest_not_logged_in`)* | Missing or invalid Application Password | **WordPress core**, not this plugin |
@@ -117,7 +117,7 @@ Returns the created post's current status, for the app to confirm nothing was ov
 Body template (server-rendered, not client-supplied HTML, to prevent injection — see security doc). Note the split between server time and client-reported time:
 
 ```
-元URL: {url}
+元URL: {url, line omitted entirely if url is empty}
 保存日時: {server creation time, always}
 共有日時: {client-reported shared_at, if provided — otherwise omitted}
 共有元: {source}
@@ -141,7 +141,7 @@ Body template (server-rendered, not client-supplied HTML, to prevent injection �
 | 0 | string | Yes | Username |
 | 1 | string | Yes | Application Password (same credential as REST — WordPress core supports Application Passwords for XML-RPC natively, not just REST) |
 | 2 | string | Yes | `title` |
-| 3 | string | Yes | `url` |
+| 3 | string or nil | No | `url` — optional since v1.1, see [docs/tech-decisions.md #12](tech-decisions.md#12-url-is-optional) |
 | 4 | string or nil | No | `shared_text` |
 | 5 | string or nil | No | `memo` |
 | 6 | string or nil | No | `source` |
@@ -154,7 +154,7 @@ Body template (server-rendered, not client-supplied HTML, to prevent injection �
 | `faultCode` | Meaning | Who determines this |
 |---|---|---|
 | *(no fault; `wp_xmlrpc_server::login()` failure)* | Bad username/Application Password | **WordPress core's own error** (typically `faultCode` 403, "Incorrect username or password") — this plugin does not invent its own code for this case, mirroring the REST division of responsibility |
-| 400 | `missing_required_field` / `invalid_url` / `invalid_shared_at` (message distinguishes which) | plugin |
+| 400 | `missing_required_field` (title only — `url` is optional) / `invalid_url` (only if `url` is present and malformed) / `invalid_shared_at` (message distinguishes which) | plugin |
 | 400 | HTTPS required | plugin |
 | 403 | `insufficient_capability` | plugin |
 | 409 | `category_unavailable` | plugin |

@@ -17,10 +17,13 @@ final class PostBodyTemplate implements PostBodyRendererInterface
 {
     public function render(DraftPayload $payload, DateTimeImmutable $createdAt): string
     {
-        $lines = [
-            sprintf('元URL: %s', $payload->url),
-            sprintf('保存日時: %s', $createdAt->format(DATE_ATOM)),
-        ];
+        $lines = [];
+
+        if ($payload->url !== '') {
+            $lines[] = sprintf('元URL: %s', $payload->url);
+        }
+
+        $lines[] = sprintf('保存日時: %s', $createdAt->format(DATE_ATOM));
 
         if ($payload->sharedAt !== null) {
             $lines[] = sprintf('共有日時: %s', $payload->sharedAt->format(DATE_ATOM));
