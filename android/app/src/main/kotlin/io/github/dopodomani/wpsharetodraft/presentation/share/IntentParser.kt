@@ -30,11 +30,18 @@ class IntentParser
 
             val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(sharedText) ?: ""
 
+            val remainderText = remainder?.takeIf { it.isNotBlank() }
+
             return CaptureItem(
                 title = title,
                 url = url ?: "",
-                sharedText = remainder?.takeIf { it.isNotBlank() },
-                memo = null,
+                sharedText = remainderText,
+                // Pre-fills the visible メモ field with the same text so sharing a Chrome text
+                // selection (which often carries no URL/title at all -- see
+                // docs/phase3-android-app-design.md's IntentParser revision 2) doesn't look
+                // like nothing was captured. sharedText keeps the identical value for its own,
+                // separate role (raw captured text sent to WordPress as shared_text).
+                memo = remainderText,
                 source = SOURCE,
                 sharedAt = clock.instant(),
             )

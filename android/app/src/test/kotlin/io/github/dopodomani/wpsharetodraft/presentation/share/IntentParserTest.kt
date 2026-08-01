@@ -47,10 +47,11 @@ class IntentParserTest {
         assertEquals("半導体市況、AI需要で最高値更新", item.title)
         assertEquals("https://www.nikkei.com/article/xxxxx", item.url)
         assertNull(item.sharedText)
+        assertNull(item.memo)
     }
 
     @Test
-    fun `a URL embedded within surrounding shared text is extracted, remainder kept as sharedText`() {
+    fun `a URL embedded within surrounding shared text is extracted, remainder kept as sharedText and memo`() {
         val intent =
             sendIntent(
                 subject = "Title",
@@ -63,6 +64,18 @@ class IntentParserTest {
         assertTrue(item.sharedText?.contains("来期は車載向けが牽引役になるとの分析。") == true)
         assertTrue(item.sharedText?.contains("参考まで。") == true)
         assertTrue(item.sharedText?.contains(item.url) == false)
+        assertEquals(item.sharedText, item.memo)
+    }
+
+    @Test
+    fun `sharing a Chrome text selection with no URL or title pre-fills memo with the selected text`() {
+        val intent = sendIntent(subject = null, text = "来期は車載向けが牽引役になるとの見立てだ。")
+
+        val item = parser.parse(intent)
+
+        assertEquals("", item.url)
+        assertEquals("来期は車載向けが牽引役になるとの見立てだ。", item.sharedText)
+        assertEquals("来期は車載向けが牽引役になるとの見立てだ。", item.memo)
     }
 
     @Test
@@ -83,6 +96,7 @@ class IntentParserTest {
 
         assertEquals("", item.url)
         assertEquals("no link here", item.sharedText)
+        assertEquals("no link here", item.memo)
     }
 
     @Test
@@ -94,6 +108,7 @@ class IntentParserTest {
         assertEquals("", item.title)
         assertEquals("", item.url)
         assertNull(item.sharedText)
+        assertNull(item.memo)
     }
 
     @Test

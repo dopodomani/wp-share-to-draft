@@ -5,6 +5,7 @@ All notable changes to this project are documented here. Format loosely follows 
 ## [Unreleased]
 
 ### Added
+- `IntentParser` now pre-fills the Confirm screen's メモ field with Chrome's shared text (docs/phase3-android-app-design.md's IntentParser revision 2). Motivated by sharing a text *selection* (rather than a whole page) from Chrome: the selected text landed only in the invisible `sharedText` field, so it looked like nothing had been captured. `sharedText` keeps receiving the same value unchanged for its existing role (raw text sent to WordPress as `shared_text`). Confirmed on real devices that Chrome doesn't reliably include the source page's URL/title for a text-selection share (site-dependent) — that stays best-effort/empty-and-editable, unchanged from before.
 - Phase 1 design docs: architecture, API spec, tech decisions, security policy, roadmap.
 - Per-phase Definition of Done and a design-review-gate process in ROADMAP.md.
 - Phase 2 detailed design for the WordPress plugin (docs/phase2-wordpress-plugin-design.md), pending review.
