@@ -92,12 +92,34 @@ class IntentParserTest {
     }
 
     @Test
+    fun `a リンク template line with the url gap collapsed to other template words is also skipped`() {
+        // Confirmed on-device: a second Chrome template variant, "リンク: を含む" ("...including
+        // the link:"), left dangling the same way when Chrome had no URL to fill in.
+        val intent = sendIntent(subject = null, text = "リンク: を含む\n来期は車載向けが牽引役になるとの見立てだ。")
+
+        val item = parser.parse(intent)
+
+        assertEquals("来期は車載向けが牽引役になるとの見立てだ。", item.title)
+    }
+
+    @Test
     fun `an English Link colon label line is also skipped when picking the title`() {
         val intent = sendIntent(subject = null, text = "Link:\nSome selected sentence.")
 
         val item = parser.parse(intent)
 
         assertEquals("Some selected sentence.", item.title)
+    }
+
+    @Test
+    fun `a real first line that happens to contain link-template words is used as-is`() {
+        // The template-noise check only skips a line if it becomes blank after removing those
+        // words -- a line with real content alongside them must never be discarded.
+        val intent = sendIntent(subject = null, text = "AIを含む生成技術の議論が加速している。")
+
+        val item = parser.parse(intent)
+
+        assertEquals("AIを含む生成技術の議論が加速している。", item.title)
     }
 
     @Test

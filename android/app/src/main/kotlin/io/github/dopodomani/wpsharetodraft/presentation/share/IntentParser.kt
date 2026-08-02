@@ -9,14 +9,18 @@ import javax.inject.Inject
 private const val SOURCE = "chrome_share"
 
 /**
- * Chrome prefixes some shared text with a "リンク：" (or "Link:") label line, meant to be
- * followed by the source URL -- but when Chrome can't determine one (see
- * docs/phase3-android-app-design.md's IntentParser revision 2), the label is left dangling
- * with nothing after it. Confirmed on-device: this label line, not the actual selected text,
- * was being picked up as the title. Matched whether or not a URL still follows it (it won't,
- * by the time this runs, since [IntentParser] already strips any detected URL first).
+ * Chrome prefixes some shared text with a template line built around the source URL --
+ * observed variants include a bare "リンク："/"Link:" label and "リンク: を含む" ("...including
+ * the link:") -- but when Chrome can't determine a URL to fill in, the template renders with
+ * that gap empty, leaving only its own boilerplate words. Confirmed on-device: this leftover
+ * template text, not the actual selected text on the next line, was being picked up as the
+ * title. Rather than matching one exact template string (fragile against variants/locales),
+ * a candidate line is treated as noise if stripping every known template word from it leaves
+ * nothing -- a line with any real content alongside these words is left untouched.
  */
-private val LINK_LABEL_ONLY_LINE = Regex("^(リンク|Link)\\s*[:：]?\\s*$", RegexOption.IGNORE_CASE)
+private val LINK_TEMPLATE_WORDS = Regex("(リンク|Link|を含む|[:：])+", RegexOption.IGNORE_CASE)
+
+private fun isLinkTemplateNoise(line: String): Boolean = line.replace(LINK_TEMPLATE_WORDS, "").isBlank()
 
 /**
  * Translates a raw Android [Intent] (Chrome's `ACTION_SEND`) into a [CaptureItem]. The one
@@ -72,5 +76,5 @@ class IntentParser
             text
                 ?.lineSequence()
                 ?.map { it.trim() }
-                ?.firstOrNull { it.isNotBlank() && !LINK_LABEL_ONLY_LINE.matches(it) }
+                ?.firstOrNull { it.isNotBlank() && !isLinkTemplateNoise(it) }
     }
