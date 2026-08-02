@@ -129,17 +129,27 @@ class IntentParser @Inject constructor(
 }
 ```
 
-Extraction rules (unchanged from revision 1, now scoped to this one class instead of being inline in the Activity):
+Extraction rules (rows 1-4 unchanged from revision 1; row 3's `memo` mapping added in revision 2 — see below):
 
 | Source | Maps to |
 |---|---|
 | `Intent.EXTRA_SUBJECT` | `CaptureItem.title` (falls back to `Intent.EXTRA_TEXT`'s first line, or an empty string requiring the user to fill it in on the Confirm screen, if `EXTRA_SUBJECT` is absent — Chrome's share sheet doesn't always populate it consistently) |
 | A URL found within `Intent.EXTRA_TEXT` (via a plain-Kotlin regex/`Patterns.WEB_URL` match) | `CaptureItem.url` |
-| The remainder of `Intent.EXTRA_TEXT` (with the matched URL removed) | `CaptureItem.sharedText` |
+| The remainder of `Intent.EXTRA_TEXT` (with the matched URL removed) | `CaptureItem.sharedText` **and** `CaptureItem.memo` (same value in both — see below) |
 | (fixed) | `CaptureItem.source = "chrome_share"` — free-form per [api-spec.md](api-spec.md#endpoints), matches the value this Android client identifies itself with |
 | `clock.instant()` at extraction time | `CaptureItem.sharedAt` |
 
 If no URL can be found in the shared content at all, `IntentParser` still returns a `CaptureItem` with `url = ""`, and the Confirm screen opens with that field empty and editable — matching the API's requirement that `url` be present, enforced client-side before enabling the Save button (see §7) rather than only failing server-side. `IntentParser` never throws for "couldn't find a URL" — that's an expected, user-correctable case, not an error condition (see [§9](#9-android-test-strategy) for `IntentParserTest`).
+
+#### Revision 2 (2026-08-01): pre-filling `memo` for Chrome's text-selection share
+
+**Context:** Chrome's "Share" action on a text *selection* (as opposed to sharing the whole page) sends the same `ACTION_SEND` shape, but empirically does **not** reliably include the source page's URL or title — confirmed on-device: selecting text on a Nikkei article and sharing yields empty `EXTRA_SUBJECT` and no URL-shaped substring in `EXTRA_TEXT` at all, while the same action on a MarkLines article sometimes does include one. This is site/Chrome-version-dependent, not something the app can force or detect reliably — no code change can guarantee a URL/title will be present, so this remains best-effort exactly as it already was; the Confirm screen's `url`/`title` fields simply open empty and editable when Chrome doesn't provide them.
+
+**The actual gap this revision fixes:** the extracted remainder text (the selected text, or the shared text minus any detected URL) was only ever assigned to `CaptureItem.sharedText` — a field with **no representation in `ConfirmDraftScreen`** (see [§1](#1-screen-transition-diagram)/[§6](#6-confirmdraftscreen-composable) — only `title`, `url`, `memo` are rendered). Sharing a text selection therefore looked like nothing had been captured at all, even when `sharedText` was populated correctly and sent to WordPress.
+
+**Decision:** `IntentParser` now also assigns the same remainder value to `CaptureItem.memo`, so the user sees and can edit it directly in the Confirm screen's existing メモ field before saving — no new UI element needed. `sharedText` keeps receiving the identical value unchanged, preserving its existing role (the raw captured text sent to WordPress as `shared_text`, rendered into the post body per [docs/phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)); this revision only adds a second destination for the same value, it doesn't remove or repurpose the first.
+
+**Alternative considered and rejected:** adding a new, separate "共有されたテキスト" display field to `ConfirmDraftScreen` instead of reusing `memo`. Rejected per explicit user preference — `memo` is where the user already expects to see/edit free text before saving, and a second near-duplicate field would be confusing for no added benefit in this app's actual usage pattern (single-user, not multi-source aggregation where telling "what was shared" apart from "what I annotated" would matter).
 
 ### `CaptureItem` — the central domain model
 

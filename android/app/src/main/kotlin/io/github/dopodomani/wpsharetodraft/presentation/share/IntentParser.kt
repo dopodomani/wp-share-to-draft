@@ -9,6 +9,20 @@ import javax.inject.Inject
 private const val SOURCE = "chrome_share"
 
 /**
+ * Chrome prefixes some shared text with a template line built around the source URL --
+ * observed variants include a bare "リンク："/"Link:" label and "リンク: を含む" ("...including
+ * the link:") -- but when Chrome can't determine a URL to fill in, the template renders with
+ * that gap empty, leaving only its own boilerplate words. Confirmed on-device: this leftover
+ * template text, not the actual selected text on the next line, was being picked up as the
+ * title. Rather than matching one exact template string (fragile against variants/locales),
+ * a candidate line is treated as noise if stripping every known template word from it leaves
+ * nothing -- a line with any real content alongside these words is left untouched.
+ */
+private val LINK_TEMPLATE_WORDS = Regex("(リンク|Link|を含む|[:：])+", RegexOption.IGNORE_CASE)
+
+private fun isLinkTemplateNoise(line: String): Boolean = line.replace(LINK_TEMPLATE_WORDS, "").isBlank()
+
+/**
  * Translates a raw Android [Intent] (Chrome's `ACTION_SEND`) into a [CaptureItem]. The one
  * piece of `presentation` that touches raw Intent extras -- isolated here, rather than
  * inline in [ShareReceiverActivity], specifically so the URL-extraction heuristic is
@@ -28,13 +42,20 @@ class IntentParser
             val url = findUrl(sharedText)
             val remainder = sharedText?.let { removeUrl(it, url) }
 
-            val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(sharedText) ?: ""
+            val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(remainder) ?: ""
+
+            val remainderText = remainder?.takeIf { it.isNotBlank() }
 
             return CaptureItem(
                 title = title,
                 url = url ?: "",
-                sharedText = remainder?.takeIf { it.isNotBlank() },
-                memo = null,
+                sharedText = remainderText,
+                // Pre-fills the visible メモ field with the same text so sharing a Chrome text
+                // selection (which often carries no URL/title at all -- see
+                // docs/phase3-android-app-design.md's IntentParser revision 2) doesn't look
+                // like nothing was captured. sharedText keeps the identical value for its own,
+                // separate role (raw captured text sent to WordPress as shared_text).
+                memo = remainderText,
                 source = SOURCE,
                 sharedAt = clock.instant(),
             )
@@ -51,5 +72,9 @@ class IntentParser
             url: String?,
         ): String? = if (url == null) text else text.replace(url, "").trim()
 
-        private fun firstLine(text: String?): String? = text?.lineSequence()?.firstOrNull { it.isNotBlank() }
+        private fun firstLine(text: String?): String? =
+            text
+                ?.lineSequence()
+                ?.map { it.trim() }
+                ?.firstOrNull { it.isNotBlank() && !isLinkTemplateNoise(it) }
     }

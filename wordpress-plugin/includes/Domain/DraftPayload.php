@@ -48,12 +48,11 @@ final class DraftPayload
             throw InvalidPayloadException::missingRequiredField('title');
         }
 
+        // url is optional -- see docs/tech-decisions.md#12-url-is-optional. An empty url
+        // skips format validation entirely; a non-empty one must still be a plausible
+        // absolute http(s) URL.
         $url = trim($url);
-        if ($url === '') {
-            throw InvalidPayloadException::missingRequiredField('url');
-        }
-
-        if (!self::isValidHttpUrl($url)) {
+        if ($url !== '' && !self::isValidHttpUrl($url)) {
             throw InvalidPayloadException::invalidUrl();
         }
 

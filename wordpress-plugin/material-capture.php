@@ -4,7 +4,7 @@
  * Plugin Name:       Material Capture
  * Plugin URI:        https://github.com/dopodomani/wp-share-to-draft
  * Description:       Creates an [INBOX]-prefixed draft post from a shared item via a REST API endpoint (material-capture/v1).
- * Version:           0.1.1
+ * Version:           0.1.2
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            dopodomani

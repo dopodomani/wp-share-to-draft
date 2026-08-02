@@ -95,8 +95,9 @@ final class DraftXmlRpcHandlerTest extends BrainMonkeyTestCase
         $useCase->shouldNotReceive('create');
 
         $handler = new DraftXmlRpcHandler($useCase, $this->passthroughFactory());
-        // Missing url -> the real DraftPayloadFactory/DraftPayload rejects it for real.
-        $result = $handler->createDraft(['user', 'app-password', 'Title', '']);
+        // Missing title -> the real DraftPayloadFactory/DraftPayload rejects it for real.
+        // (url is optional -- see docs/tech-decisions.md#12-url-is-optional.)
+        $result = $handler->createDraft(['user', 'app-password', '']);
 
         self::assertInstanceOf(IXR_Error::class, $result);
         self::assertSame(400, $result->code);

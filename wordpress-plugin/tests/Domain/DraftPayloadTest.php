@@ -39,14 +39,11 @@ final class DraftPayloadTest extends TestCase
         }
     }
 
-    public function test_empty_url_throws_missing_required_field(): void
+    public function test_empty_url_is_accepted(): void
     {
-        try {
-            DraftPayload::create('Title', '  ', null, null, 'unknown', null);
-            self::fail('Expected InvalidPayloadException.');
-        } catch (InvalidPayloadException $exception) {
-            self::assertSame('missing_required_field', $exception->errorCode());
-        }
+        $payload = DraftPayload::create('Title', '  ', null, null, 'unknown', null);
+
+        self::assertSame('', $payload->url);
     }
 
     /** @dataProvider malformedUrls */
