@@ -9,6 +9,16 @@ import javax.inject.Inject
 private const val SOURCE = "chrome_share"
 
 /**
+ * Chrome prefixes some shared text with a "リンク：" (or "Link:") label line, meant to be
+ * followed by the source URL -- but when Chrome can't determine one (see
+ * docs/phase3-android-app-design.md's IntentParser revision 2), the label is left dangling
+ * with nothing after it. Confirmed on-device: this label line, not the actual selected text,
+ * was being picked up as the title. Matched whether or not a URL still follows it (it won't,
+ * by the time this runs, since [IntentParser] already strips any detected URL first).
+ */
+private val LINK_LABEL_ONLY_LINE = Regex("^(リンク|Link)\\s*[:：]?\\s*$", RegexOption.IGNORE_CASE)
+
+/**
  * Translates a raw Android [Intent] (Chrome's `ACTION_SEND`) into a [CaptureItem]. The one
  * piece of `presentation` that touches raw Intent extras -- isolated here, rather than
  * inline in [ShareReceiverActivity], specifically so the URL-extraction heuristic is
@@ -28,7 +38,7 @@ class IntentParser
             val url = findUrl(sharedText)
             val remainder = sharedText?.let { removeUrl(it, url) }
 
-            val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(sharedText) ?: ""
+            val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(remainder) ?: ""
 
             val remainderText = remainder?.takeIf { it.isNotBlank() }
 
@@ -58,5 +68,9 @@ class IntentParser
             url: String?,
         ): String? = if (url == null) text else text.replace(url, "").trim()
 
-        private fun firstLine(text: String?): String? = text?.lineSequence()?.firstOrNull { it.isNotBlank() }
+        private fun firstLine(text: String?): String? =
+            text
+                ?.lineSequence()
+                ?.map { it.trim() }
+                ?.firstOrNull { it.isNotBlank() && !LINK_LABEL_ONLY_LINE.matches(it) }
     }

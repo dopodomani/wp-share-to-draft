@@ -79,6 +79,28 @@ class IntentParserTest {
     }
 
     @Test
+    fun `a dangling リンク label line with nothing after it is skipped when picking the title`() {
+        // Chrome sometimes prefixes shared text with a "リンク：" label meant to be followed by
+        // the source URL -- when it can't determine one, the label is left dangling. Confirmed
+        // on-device: this was being picked up as the title instead of the actual selected text.
+        val intent = sendIntent(subject = null, text = "リンク：\n来期は車載向けが牽引役になるとの見立てだ。")
+
+        val item = parser.parse(intent)
+
+        assertEquals("来期は車載向けが牽引役になるとの見立てだ。", item.title)
+        assertEquals("", item.url)
+    }
+
+    @Test
+    fun `an English Link colon label line is also skipped when picking the title`() {
+        val intent = sendIntent(subject = null, text = "Link:\nSome selected sentence.")
+
+        val item = parser.parse(intent)
+
+        assertEquals("Some selected sentence.", item.title)
+    }
+
+    @Test
     fun `missing subject falls back to the first non-blank line of shared text as title`() {
         val intent = sendIntent(subject = null, text = "半導体市況、AI需要で最高値更新\nhttps://www.nikkei.com/article/xxxxx")
 
