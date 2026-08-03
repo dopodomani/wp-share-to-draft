@@ -14,6 +14,25 @@ This project is developed across two machines and two AI coding assistants. This
 - WordPress smoke testing against a real instance (per [docs/phase2-smoke-test-guide.md](phase2-smoke-test-guide.md))
 - Pre-release verification
 - Anything that specifically requires the Android SDK (see [What works with and without the Android SDK](#what-works-with-and-without-the-android-sdk) below)
+- Local WordPress plugin testing without touching production (see [Local WordPress test environment (SQLite, no Docker)](#local-wordpress-test-environment-sqlite-no-docker) below)
+
+## Local WordPress test environment (SQLite, no Docker)
+
+For exercising the plugin (REST + XML-RPC, real `wp_insert_post`, real capability checks) without the production site and without installing Docker Desktop: `wordpress-plugin/scripts/setup-local-sqlite-env.sh` builds a throwaway WordPress instance backed by the WordPress team's own [SQLite Database Integration](https://wordpress.org/plugins/sqlite-database-integration/) plugin instead of MySQL, served by PHP's built-in web server. No database server, no Docker, no admin/elevated install step — everything it needs (WordPress core, WP-CLI, the SQLite plugin) is downloaded as a plain zip/phar.
+
+```bash
+wordpress-plugin/scripts/setup-local-sqlite-env.sh
+# then, each time you want it running:
+cd ../local-wordpress/site && php -S localhost:8080
+```
+
+- Installs to a sibling directory (`../local-wordpress/`, next to this repo) — never inside it, never committed.
+- The plugin directory is **symlinked**, not copied, from `wordpress-plugin/` — local code edits apply immediately, no reinstall step.
+- Idempotent: re-running the script skips any step whose output already exists (downloads, `wp-config.php`, the installed site) — safe to re-run any time.
+- The built-in server has no TLS, but `material-capture` correctly requires HTTPS (see [docs/security.md](security.md)) — the script adds a `wp-content/mu-plugins/local-dev-force-https.php` that spoofs `is_ssl()` for this instance only. This exercises the HTTPS-required code path faithfully without weakening the plugin itself; it's a property of the local shim, not the plugin.
+- No pretty permalinks (no `.htaccess`/rewrite support in `php -S`) — hit REST via the `?rest_route=/material-capture/v1/draft` query-string form, not `/wp-json/...`, when testing against this environment specifically.
+- Admin login: `admin` / `admin-local-test-only` (printed by the script; a local-only throwaway credential, not a secret worth protecting). Create an Application Password for API testing with `wp user application-password create admin "material-capture-test" --porcelain` from `site/`, using the same `wp-cli.phar` the script downloaded.
+- Not currently wired into CI or any ROADMAP phase — it's dev tooling, useful on demand whenever local plugin testing is needed, independent of when/whether Phase 4 happens in this repo.
 
 ## Secondary PC
 
