@@ -111,6 +111,8 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 
 ## Phase 4 — Integration testing
 
+**Status: on hold (2026-08-03).** Deliberately not pursued as work in this repository right now — the happy path (real Android device → real Chrome share → real WordPress) has already been exercised repeatedly and successfully during Phase 3d/2d verification against dopodomani.biz, so the most valuable part of Phase 4b is informally covered already. Formal Phase 4a/4b work (design doc, systematic error-path testing, explicit CI-pipeline-boundary verification) can resume whenever it's next prioritized; nothing below is stale, just paused. Local-WordPress dev tooling (`wordpress-plugin/scripts/setup-local-sqlite-env.sh`) was still built in the meantime, since it's independently useful and not itself Phase 4 scope.
+
 ### Phase 4a — Integration test design
 
 **Definition of Done:**
