@@ -112,6 +112,38 @@ class MaterialCaptureXmlRpcApiTest {
             assertTrue(result is XmlRpcResult.Fault)
         }
 
+    /**
+     * Defense in depth (not a fix for an observed attack): the site is the user's own
+     * HTTPS-configured WordPress host, but a compromised or misbehaving server is exactly the
+     * scenario worth guarding against. A plain DocumentBuilderFactory resolves DOCTYPE
+     * declarations and external entities by default; confirms the response parser rejects any
+     * DOCTYPE outright (mapping to a Fault) rather than expanding it.
+     */
+    @Test
+    fun `a response containing a DOCTYPE with an external entity is rejected, not expanded`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody(xxePayloadResponse()))
+
+            val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
+
+            assertTrue(result is XmlRpcResult.Fault)
+        }
+
+    private fun xxePayloadResponse(): String =
+        """
+        <?xml version="1.0"?>
+        <!DOCTYPE methodResponse [
+          <!ENTITY xxe SYSTEM "file:///etc/passwd">
+        ]>
+        <methodResponse><params><param><value><struct>
+        <member><name>post_id</name><value><int>1</int></value></member>
+        <member><name>status</name><value><string>&xxe;</string></value></member>
+        <member><name>title</name><value><string>Title</string></value></member>
+        <member><name>category</name><value><string>素材候補</string></value></member>
+        <member><name>created_at</name><value><string>2026-07-28T09:15:03Z</string></value></member>
+        </struct></value></param></params></methodResponse>
+        """.trimIndent()
+
     private fun successResponse(): String =
         """
         <?xml version="1.0"?><methodResponse><params><param><value><struct>
