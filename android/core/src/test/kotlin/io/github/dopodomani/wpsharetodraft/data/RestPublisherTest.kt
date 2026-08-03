@@ -140,5 +140,46 @@ class RestPublisherTest {
             assertEquals(CaptureError.Network.Unreachable, (result.exceptionOrNull() as CaptureException).error)
         }
 
+    @Test
+    fun `a 201 with malformed JSON maps to Unknown instead of crashing`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(201).setBody("""{"post_id": not valid json"""))
+
+            val result = publisher().publish(item, settings)
+
+            assertTrue((result.exceptionOrNull() as CaptureException).error is CaptureError.Unknown)
+        }
+
+    @Test
+    fun `a 201 with a missing required field maps to Unknown instead of crashing`() =
+        runTest {
+            // No "post_id" at all -- DraftResponseDto has no default for it.
+            server.enqueue(
+                MockResponse().setResponseCode(201).setBody(
+                    """{"status":"draft","title":"[INBOX] Title","edit_url":null,"preview_url":null,
+                       "category":"素材候補","created_at":"2026-07-28T09:15:03Z"}""",
+                ),
+            )
+
+            val result = publisher().publish(item, settings)
+
+            assertTrue((result.exceptionOrNull() as CaptureException).error is CaptureError.Unknown)
+        }
+
+    @Test
+    fun `a 201 with an unparseable created_at maps to Unknown instead of crashing`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(201).setBody(
+                    """{"post_id":1,"status":"draft","title":"[INBOX] Title","edit_url":null,"preview_url":null,
+                       "category":"素材候補","created_at":"not-a-timestamp"}""",
+                ),
+            )
+
+            val result = publisher().publish(item, settings)
+
+            assertTrue((result.exceptionOrNull() as CaptureException).error is CaptureError.Unknown)
+        }
+
     private fun publisher(): RestPublisher = RestPublisher(api, MaterialCaptureErrorMapper())
 }

@@ -5,7 +5,9 @@ import io.github.dopodomani.wpsharetodraft.domain.CaptureError
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
 import io.github.dopodomani.wpsharetodraft.domain.DraftResult
 import io.github.dopodomani.wpsharetodraft.domain.asThrowable
+import kotlinx.serialization.SerializationException
 import java.io.IOException
+import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 /**
@@ -35,6 +37,19 @@ class RestPublisher
                 }
             } catch (e: IOException) {
                 Result.failure(errorMapper.fromException(e).asThrowable())
+            } catch (e: SerializationException) {
+                // A 2xx response whose body doesn't match DraftResponseDto's shape (missing
+                // field, malformed JSON) -- distinct from the "empty body" case above, but the
+                // same underlying condition: the request nominally succeeded per HTTP status,
+                // but the response can't be trusted. Retrofit's kotlinx.serialization converter
+                // throws this synchronously from the createDraft() call itself, not lazily from
+                // response.body(), so it must be caught here rather than assumed away.
+                Result.failure(CaptureError.Unknown("Malformed response: ${e.message}").asThrowable())
+            } catch (e: DateTimeParseException) {
+                // DraftResponseDto.toDomain() parses created_at as an Instant -- a well-formed
+                // JSON body with an unparseable timestamp surfaces here, not as a
+                // SerializationException.
+                Result.failure(CaptureError.Unknown("Malformed response: ${e.message}").asThrowable())
             }
         }
     }
