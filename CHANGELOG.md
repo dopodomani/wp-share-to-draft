@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Added
+- `wordpress-plugin/scripts/setup-local-sqlite-env.sh`: builds a throwaway local WordPress instance (WordPress core + the official SQLite Database Integration plugin, served via `php -S`) for testing the plugin's REST/XML-RPC endpoints without Docker or the production site. Idempotent, symlinks the plugin directory so local edits apply immediately. Documented in docs/development.md. Dev tooling only — not wired into CI or tied to any ROADMAP phase.
+
 ### Changed
 - ADR #12: `url` is no longer a required field on `POST /draft` or `material_capture.createDraft` (docs/tech-decisions.md). Motivated by Chrome's "share selected text" action, which doesn't reliably include the source page's URL at all — requiring one client-side just moved that failure to a 400 after a network round-trip. `Domain\DraftPayload::create()` now only validates format (`http`/`https`, well-formed) when `url` is non-empty; the rendered post body omits the "元URL: " line entirely when absent. `docs/api-spec.md` updated (REST + XML-RPC param tables, error table). Android's `ConfirmDraftViewModel.isSaveEnabled` no longer requires `url`, only `title`.
 
