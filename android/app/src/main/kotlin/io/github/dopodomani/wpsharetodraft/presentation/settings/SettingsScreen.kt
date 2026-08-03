@@ -12,6 +12,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -35,6 +36,14 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     when (val state = uiState) {
+        SettingsUiState.Loading ->
+            Column(
+                modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CircularProgressIndicator()
+            }
         is SettingsUiState.Editing ->
             Column(
                 modifier =
