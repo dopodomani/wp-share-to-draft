@@ -6,3 +6,10 @@ android/gradle/wrapper/gradle-wrapper.jar binary
 
 # Same reasoning as android/gradlew above.
 wordpress-plugin/scripts/*.sh text eol=lf
+
+# PHPCS's Generic.Files.LineEndings sniff expects LF and fails on a CRLF working tree copy --
+# on Windows checkouts, core.autocrlf can convert these to CRLF on checkout even though the
+# committed blob is LF, making `composer lint` fail for reasons that have nothing to do with
+# the PHP change actually being reviewed. Also the baseline assumption for any future
+# WordPress-side CI (PHPCS/PHPUnit), matching how Android CI already runs on Ubuntu.
+wordpress-plugin/**/*.php text eol=lf
