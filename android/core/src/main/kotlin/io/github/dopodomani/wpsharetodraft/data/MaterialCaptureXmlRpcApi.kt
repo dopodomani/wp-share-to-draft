@@ -87,8 +87,7 @@ class MaterialCaptureXmlRpcApi
         private fun parseMethodResponse(xml: String): XmlRpcResult {
             val document =
                 runCatching {
-                    val factory = DocumentBuilderFactory.newInstance()
-                    factory.newDocumentBuilder().parse(InputSource(StringReader(xml)))
+                    hardenedDocumentBuilderFactory().newDocumentBuilder().parse(InputSource(StringReader(xml)))
                 }.getOrNull()
                     ?: return XmlRpcResult.Fault(0, "Malformed XML-RPC response")
 
@@ -158,6 +157,24 @@ class MaterialCaptureXmlRpcApi
                 .map { nodes.item(it) }
                 .filterIsInstance<Element>()
         }
+
+        /**
+         * A plain [DocumentBuilderFactory] resolves DOCTYPE declarations and external entities
+         * by default, making it vulnerable to XXE (billion-laughs, local file disclosure via
+         * `<!ENTITY>`, SSRF via an external DTD fetch) if it ever parses attacker-controlled
+         * XML. The site we call is the user's own HTTPS-configured WordPress host, but a
+         * compromised or misbehaving server is exactly the scenario worth defending against
+         * here -- this is defense in depth, not a fix for a specific observed attack. WordPress
+         * XML-RPC responses never legitimately need a DOCTYPE or external entities, so
+         * disabling them outright has no functional cost.
+         */
+        private fun hardenedDocumentBuilderFactory(): DocumentBuilderFactory =
+            DocumentBuilderFactory.newInstance().apply {
+                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+                setFeature("http://xml.org/sax/features/external-general-entities", false)
+                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                isExpandEntityReferences = false
+            }
 
         private companion object {
             const val METHOD_NAME = "material_capture.createDraft"
