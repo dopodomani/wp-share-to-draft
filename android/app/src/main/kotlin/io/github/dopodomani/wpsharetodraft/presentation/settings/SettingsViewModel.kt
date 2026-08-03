@@ -16,8 +16,25 @@ import javax.inject.Inject
 class SettingsViewModel
     @Inject
     constructor(private val settingsRepository: SettingsRepository) : ViewModel() {
-        private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Editing())
+        private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                val existing = settingsRepository.get()
+                _uiState.value =
+                    if (existing != null) {
+                        SettingsUiState.Editing(
+                            siteUrl = existing.siteUrl,
+                            username = existing.username,
+                            applicationPassword = existing.applicationPassword,
+                            connectionMethod = existing.connectionMethod,
+                        )
+                    } else {
+                        SettingsUiState.Editing()
+                    }
+            }
+        }
 
         fun onSiteUrlChanged(value: String) = updateEditing { it.copy(siteUrl = value, validationError = null) }
 
