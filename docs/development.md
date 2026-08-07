@@ -120,7 +120,46 @@ No secrets are used or required: the build needs no real WordPress URL, username
 
 **Explicitly out of scope for this workflow:** emulator/instrumented tests, real-device Share Target behavior, and real-WordPress smoke testing — those stay Phase 4 territory (see [docs/phase2-smoke-test-guide.md](phase2-smoke-test-guide.md) and [ROADMAP.md](../ROADMAP.md)'s Phase 4 gate), not something this CI attempts to replace.
 
-**Not yet built:** WordPress CI (`composer install`, PHPUnit, PHPCS) and docs CI (Markdown lint, Mermaid syntax check) — still tracked as Phase 5 tasks, not implied as existing by this document.
+**WordPress CI is built** ([.github/workflows/wordpress-ci.yml](../.github/workflows/wordpress-ci.yml)). On every push to `main` and every pull request touching `wordpress-plugin/**`, it:
+
+1. Installs the locked Composer dependencies on PHP 8.1, 8.2, and 8.3
+2. Runs the Brain Monkey/Mockery PHPUnit suite on every supported PHP version in that matrix
+3. Validates `composer.json` and `composer.lock` strictly on the minimum supported PHP version (8.1)
+4. Runs PHPCS with the repository's WordPress/PHPCompatibility ruleset
+
+The workflow has read-only repository permissions and uses no secrets or live WordPress instance. Composer downloads are cached by operating system, PHP version, and lock-file hash; `composer install` still verifies and installs exactly what `composer.lock` declares.
+
+**Not yet built:** docs CI (Markdown lint, link checking, Mermaid syntax check) — still tracked as a Phase 5 task.
+
+## Release packaging
+
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) runs on `v*` tags and by manual
+dispatch. It runs the WordPress and Android test/lint suites, builds an installable
+`material-capture/`-rooted plugin ZIP with production-only Composer autoload files, extracts and
+loads that ZIP as a smoke check, builds the Android debug APK, and generates `SHA256SUMS`. Manual
+runs retain the complete bundle as a workflow artifact; tag runs also create or update the
+matching GitHub Release.
+
+The plugin package can be reproduced locally on a Unix-like shell with:
+
+```bash
+wordpress-plugin/scripts/build-release.sh dist material-capture-local.zip
+unzip -q dist/material-capture-local.zip -d dist/extracted
+php wordpress-plugin/scripts/verify-release.php dist/extracted/material-capture
+```
+
+## Dependency maintenance and Actions pinning
+
+Android plugin and library versions are centralized in
+[`android/gradle/libs.versions.toml`](../android/gradle/libs.versions.toml). Module build files use
+catalog aliases and must not introduce new inline dependency versions. Dependabot checks Gradle,
+Composer, and GitHub Actions every Monday morning (Asia/Tokyo), grouping related updates so the
+corresponding CI suites validate compatible sets together.
+
+Every third-party `uses:` entry in `.github/workflows/` is pinned to a full 40-character commit
+SHA. The reviewed major tag is retained as an inline comment for readability. Dependabot updates
+the pinned commits; reviewers should confirm the upstream repository, release notes, and expected
+major tag before merging those PRs.
 
 ## Reporting unverified work
 

@@ -3,6 +3,7 @@ package io.github.dopodomani.wpsharetodraft.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.dopodomani.wpsharetodraft.data.WordPressSiteUrl
 import io.github.dopodomani.wpsharetodraft.domain.AppSettings
 import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
@@ -52,15 +53,16 @@ class SettingsViewModel
                 _uiState.value = current.copy(validationError = "すべての項目を入力してください")
                 return
             }
-            if (!current.siteUrl.startsWith("https://")) {
-                _uiState.value = current.copy(validationError = "サイトURLはhttps://で始まる必要があります")
+            val normalizedSiteUrl = WordPressSiteUrl.normalize(current.siteUrl)
+            if (normalizedSiteUrl == null) {
+                _uiState.value = current.copy(validationError = "有効なHTTPSのサイトURLを入力してください")
                 return
             }
 
             viewModelScope.launch {
                 settingsRepository.save(
                     AppSettings(
-                        siteUrl = current.siteUrl.trimEnd('/'),
+                        siteUrl = normalizedSiteUrl,
                         username = current.username,
                         applicationPassword = current.applicationPassword,
                         connectionMethod = current.connectionMethod,
@@ -74,4 +76,5 @@ class SettingsViewModel
             val current = _uiState.value
             if (current is SettingsUiState.Editing) _uiState.value = transform(current)
         }
+
     }

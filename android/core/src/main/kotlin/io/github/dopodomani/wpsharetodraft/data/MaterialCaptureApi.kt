@@ -2,6 +2,7 @@ package io.github.dopodomani.wpsharetodraft.data
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Url
 
@@ -14,6 +15,7 @@ interface MaterialCaptureApi {
     @POST
     suspend fun createDraft(
         @Url url: String,
+        @Header("Authorization") authorization: String,
         @Body request: DraftRequestDto,
     ): Response<DraftResponseDto>
 }

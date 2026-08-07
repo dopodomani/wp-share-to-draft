@@ -53,6 +53,16 @@ class MaterialCaptureErrorMapper
                 else -> CaptureError.Network.Unreachable
             }
 
+        fun fromXmlRpcHttpStatus(status: Int): CaptureError =
+            when (status) {
+                401 -> CaptureError.Unauthenticated
+                403 -> CaptureError.InsufficientCapability
+                429 -> CaptureError.RateLimited
+                503 -> CaptureError.ServiceUnavailable
+                in 500..599 -> CaptureError.ServerError("HTTP $status")
+                else -> CaptureError.Unknown("HTTP $status")
+            }
+
         /**
          * XML-RPC faults carry only a `faultCode`/`faultString`, no `code` string like REST's
          * error body -- see docs/api-spec.md's XML-RPC fault table. `faultCode` 403 covers both

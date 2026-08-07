@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.ResponseBody
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
 import java.io.StringReader
@@ -44,10 +45,36 @@ class MaterialCaptureXmlRpcApi
             // from viewModelScope.launch (Dispatchers.Main.immediate).
             return withContext(Dispatchers.IO) {
                 httpClient.newCall(request).execute().use { response ->
-                    val responseXml = response.body?.string().orEmpty()
-                    parseMethodResponse(responseXml)
+                    if (!response.isSuccessful) return@use XmlRpcResult.HttpError(response.code)
+
+                    when (val body = readResponseBody(response.body)) {
+                        is ResponseBodyResult.Content -> parseMethodResponse(body.xml)
+                        is ResponseBodyResult.Error -> XmlRpcResult.ProtocolError(body.reason)
+                    }
                 }
             }
+        }
+
+        private fun readResponseBody(body: ResponseBody?): ResponseBodyResult {
+            if (body == null || body.contentLength() == 0L) {
+                return ResponseBodyResult.Error(XmlRpcProtocolError.EMPTY_RESPONSE)
+            }
+            if (body.contentLength() > MAX_RESPONSE_BYTES) {
+                return ResponseBodyResult.Error(XmlRpcProtocolError.RESPONSE_TOO_LARGE)
+            }
+
+            val source = body.source()
+            source.request(MAX_RESPONSE_BYTES + 1)
+            if (source.buffer.size > MAX_RESPONSE_BYTES) {
+                return ResponseBodyResult.Error(XmlRpcProtocolError.RESPONSE_TOO_LARGE)
+            }
+
+            val xml = source.readUtf8()
+            if (xml.isBlank()) return ResponseBodyResult.Error(XmlRpcProtocolError.EMPTY_RESPONSE)
+            if (!xml.trimStart().startsWith("<")) {
+                return ResponseBodyResult.Error(XmlRpcProtocolError.NON_XML_RESPONSE)
+            }
+            return ResponseBodyResult.Content(xml)
         }
 
         private fun buildMethodCallXml(
@@ -89,7 +116,7 @@ class MaterialCaptureXmlRpcApi
                 runCatching {
                     hardenedDocumentBuilderFactory().newDocumentBuilder().parse(InputSource(StringReader(xml)))
                 }.getOrNull()
-                    ?: return XmlRpcResult.Fault(0, "Malformed XML-RPC response")
+                    ?: return XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML)
 
             val root = document.documentElement
             val faultStruct = root.firstElementChildNamed("fault")?.firstElementChildNamed("value")?.firstElementChildNamed("struct")
@@ -106,13 +133,13 @@ class MaterialCaptureXmlRpcApi
                     ?.firstElementChildNamed("param")
                     ?.firstElementChildNamed("value")
                     ?.firstElementChildNamed("struct")
-                    ?: return XmlRpcResult.Fault(0, "Malformed XML-RPC response")
+                    ?: return XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML)
 
             val members = structMembers(resultStruct)
             return try {
                 XmlRpcResult.Success(
                     DraftResult(
-                        postId = members["post_id"]?.toLong() ?: return XmlRpcResult.Fault(0, "Missing post_id"),
+                        postId = members["post_id"]?.toLong() ?: return XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML),
                         status = members["status"].orEmpty(),
                         title = members["title"].orEmpty(),
                         editUrl = members["edit_url"],
@@ -122,7 +149,7 @@ class MaterialCaptureXmlRpcApi
                     ),
                 )
             } catch (e: Exception) {
-                XmlRpcResult.Fault(0, "Malformed XML-RPC response: ${e.message}")
+                XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML)
             }
         }
 
@@ -178,12 +205,30 @@ class MaterialCaptureXmlRpcApi
 
         private companion object {
             const val METHOD_NAME = "material_capture.createDraft"
+            internal const val MAX_RESPONSE_BYTES = 1_048_576L
             val XML_MEDIA_TYPE = "text/xml".toMediaType()
         }
     }
+
+private sealed interface ResponseBodyResult {
+    data class Content(val xml: String) : ResponseBodyResult
+
+    data class Error(val reason: XmlRpcProtocolError) : ResponseBodyResult
+}
+
+enum class XmlRpcProtocolError(val detail: String) {
+    EMPTY_RESPONSE("Empty XML-RPC response"),
+    NON_XML_RESPONSE("Non-XML XML-RPC response"),
+    RESPONSE_TOO_LARGE("XML-RPC response exceeds 1 MiB"),
+    MALFORMED_XML("Malformed XML-RPC response"),
+}
 
 sealed interface XmlRpcResult {
     data class Success(val result: DraftResult) : XmlRpcResult
 
     data class Fault(val faultCode: Int, val faultString: String) : XmlRpcResult
+
+    data class HttpError(val statusCode: Int) : XmlRpcResult
+
+    data class ProtocolError(val reason: XmlRpcProtocolError) : XmlRpcResult
 }

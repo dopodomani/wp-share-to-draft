@@ -1,6 +1,7 @@
 package io.github.dopodomani.wpsharetodraft.data
 
 import io.github.dopodomani.wpsharetodraft.domain.AppSettings
+import io.github.dopodomani.wpsharetodraft.domain.CaptureError
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
 import io.github.dopodomani.wpsharetodraft.domain.DraftResult
 import io.github.dopodomani.wpsharetodraft.domain.asThrowable
@@ -28,6 +29,8 @@ class XmlRpcPublisher
                 when (val response = xmlRpcApi.createDraft(url, settings.username, settings.applicationPassword, item)) {
                     is XmlRpcResult.Success -> Result.success(response.result)
                     is XmlRpcResult.Fault -> Result.failure(errorMapper.fromXmlRpcFault(response).asThrowable())
+                    is XmlRpcResult.HttpError -> Result.failure(errorMapper.fromXmlRpcHttpStatus(response.statusCode).asThrowable())
+                    is XmlRpcResult.ProtocolError -> Result.failure(CaptureError.Unknown(response.reason.detail).asThrowable())
                 }
             } catch (e: IOException) {
                 Result.failure(errorMapper.fromException(e).asThrowable())

@@ -27,10 +27,14 @@ class WordPressDestination
             val settings =
                 settingsRepository.get()
                     ?: return Result.failure(CaptureError.SettingsNotConfigured.asThrowable())
+            val normalizedSiteUrl =
+                WordPressSiteUrl.normalize(settings.siteUrl)
+                    ?: return Result.failure(CaptureError.InvalidSettings.asThrowable())
+            val validatedSettings = settings.copy(siteUrl = normalizedSiteUrl)
 
-            logger.d(TAG, "Publishing via ${settings.connectionMethod}")
+            logger.d(TAG, "Publishing via ${validatedSettings.connectionMethod}")
 
-            return publisherFactory.create(settings.connectionMethod).publish(item, settings)
+            return publisherFactory.create(validatedSettings.connectionMethod).publish(item, validatedSettings)
         }
 
         private companion object {

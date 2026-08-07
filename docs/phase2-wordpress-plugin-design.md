@@ -408,7 +408,12 @@ Two additional, narrower exceptions, both suppressed inline with a `phpcs:ignore
 
 The repository keeps plugin source at `wordpress-plugin/` for consistency with the rest of this monorepo's top-level layout (`android/`, `docs/`, etc.). Installing that folder verbatim as `wp-content/plugins/wordpress-plugin/` would work but produces an unhelpful, generically-named plugin directory on a real WordPress install.
 
-**Decision:** source stays at `wordpress-plugin/` in the repo; Phase 5's release process packages it into a zip whose internal top-level folder is `material-capture/` (i.e., the zip contains `material-capture/material-capture.php`, not `wordpress-plugin/material-capture.php`). This is a packaging-step concern, not a source-layout concern — added as an explicit Phase 5 Definition-of-Done item in [ROADMAP.md](../ROADMAP.md#phase-5--oss-launch) rather than renaming the source directory now.
+**Decision:** source stays at `wordpress-plugin/` in the repo; the release process packages it into
+a zip whose internal top-level folder is `material-capture/` (i.e., the zip contains
+`material-capture/material-capture.php`, not `wordpress-plugin/material-capture.php`). The package
+contains production Composer autoload files but excludes tests, scripts, and development
+manifests. CI extracts and loads the packaged bootstrap before publishing it; see
+`.github/workflows/release.yml` and `wordpress-plugin/scripts/build-release.sh`.
 
 ## Non-goals for Phase 2
 

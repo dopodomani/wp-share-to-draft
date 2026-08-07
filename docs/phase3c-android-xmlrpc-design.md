@@ -105,7 +105,8 @@ class RestPublisher
         override suspend fun publish(item: CaptureItem, settings: AppSettings): Result<DraftResult> {
             return try {
                 val url = "${settings.siteUrl}/wp-json/material-capture/v1/draft"
-                val response = api.createDraft(url, DraftRequestDto.from(item))
+                val authorization = Credentials.basic(settings.username, settings.applicationPassword)
+                val response = api.createDraft(url, authorization, DraftRequestDto.from(item))
                 if (response.isSuccessful) {
                     val body = response.body() ?: return Result.failure(CaptureError.Unknown("Empty response body").asThrowable())
                     Result.success(body.toDomain())
@@ -119,7 +120,11 @@ class RestPublisher
     }
 ```
 
-(`AuthInterceptor` — unchanged — still injects the REST Basic Auth header per request via the shared `OkHttpClient`; `RestPublisher` itself doesn't touch auth headers directly, same division of responsibility as before.)
+`RestPublisher` passes the Basic Auth header explicitly to this REST call. The shared
+`OkHttpClient` has no authentication interceptor, so the XML-RPC request cannot receive a
+duplicate Basic header and future APIs cannot receive the WordPress credential implicitly. The
+endpoint URL and credential are derived from the same validated `AppSettings`, avoiding a
+separate asynchronous settings lookup and removing the former interceptor's `runBlocking`.
 
 ```kotlin
 class XmlRpcPublisher
@@ -134,6 +139,8 @@ class XmlRpcPublisher
                 when (val response = xmlRpcApi.createDraft(url, settings.username, settings.applicationPassword, item)) {
                     is XmlRpcResult.Success -> Result.success(response.result)
                     is XmlRpcResult.Fault -> Result.failure(errorMapper.fromXmlRpcFault(response).asThrowable())
+                    is XmlRpcResult.HttpError -> Result.failure(errorMapper.fromXmlRpcHttpStatus(response.statusCode).asThrowable())
+                    is XmlRpcResult.ProtocolError -> Result.failure(CaptureError.Unknown(response.reason.detail).asThrowable())
                 }
             } catch (e: IOException) {
                 Result.failure(errorMapper.fromException(e).asThrowable())
@@ -161,7 +168,8 @@ class MaterialCaptureXmlRpcApi
                 .post(requestXml.toRequestBody("text/xml".toMediaType()))
                 .build()
             httpClient.newCall(request).execute().use { response ->
-                val responseXml = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return XmlRpcResult.HttpError(response.code)
+                val responseXml = readAtMostOneMiB(response.body)
                 return parseMethodResponse(responseXml)
             }
         }
@@ -173,8 +181,18 @@ class MaterialCaptureXmlRpcApi
 sealed interface XmlRpcResult {
     data class Success(val result: DraftResult) : XmlRpcResult
     data class Fault(val faultCode: Int, val faultString: String) : XmlRpcResult
+    data class HttpError(val statusCode: Int) : XmlRpcResult
+    data class ProtocolError(val reason: XmlRpcProtocolError) : XmlRpcResult
 }
 ```
+
+The HTTP status is handled before reading or parsing the body. Successful response bodies are
+limited to 1 MiB using Okio's buffered source rather than `ResponseBody.string()`, so a missing or
+misleading `Content-Length` cannot bypass the cap. Empty, non-XML, oversized, and malformed XML
+responses remain distinct protocol errors. HTTP 429 maps to `RateLimited`, HTTP 503 maps to
+`ServiceUnavailable`, and both are presented as retryable; other non-2xx statuses retain their
+typed auth/server/unknown mappings. The shared client explicitly uses 10-second connect,
+20-second read/write, and 30-second whole-call timeouts.
 
 ### `MaterialCaptureErrorMapper.fromXmlRpcFault(...)`
 
