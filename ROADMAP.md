@@ -132,8 +132,10 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 **Definition of Done:**
 - [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` finalized for public contributors
 - [ ] Issue templates, PR template added under `.github/`
-- [ ] GitHub Actions CI: PHP lint (PHPUnit/PHPCS), Markdown lint, all green on `main` — Android CI ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml)) was already added during Phase 3b; this item is just the remaining WordPress/docs coverage
-- [ ] Release packaging step produces a `material-capture/`-rooted zip from the `wordpress-plugin/` source (see [docs/phase2-wordpress-plugin-design.md](docs/phase2-wordpress-plugin-design.md#release-packaging-source-layout-vs-installed-plugin-folder))
+- [x] GitHub Actions WordPress CI: locked Composer install, PHPUnit on PHP 8.1/8.2/8.3, Composer validation, and PHPCS — [`.github/workflows/wordpress-ci.yml`](.github/workflows/wordpress-ci.yml)
+- [x] Dependency maintenance: Android Version Catalog, weekly Dependabot updates for Gradle/Composer/Actions, and full-SHA pinning for every third-party Action
+- [ ] Documentation CI: Markdown lint, link checking, and Mermaid syntax checking
+- [x] Release packaging produces a verified `material-capture/`-rooted plugin ZIP, Android APK, and SHA-256 checksums, publishing them on `v*` tags — [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - [ ] README polished so an external contributor can onboard from it alone
 - [ ] Repository visibility confirmed public
 

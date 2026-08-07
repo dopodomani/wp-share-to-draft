@@ -14,6 +14,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -48,10 +50,28 @@ class WordPressDestinationTest {
     @BeforeEach
     fun setUp() {
         server = MockWebServer()
+        val localhostCertificate =
+            HeldCertificate.Builder()
+                .addSubjectAlternativeName("localhost")
+                .build()
+        val serverCertificates =
+            HandshakeCertificates.Builder()
+                .heldCertificate(localhostCertificate)
+                .build()
+        val clientCertificates =
+            HandshakeCertificates.Builder()
+                .addTrustedCertificate(localhostCertificate.certificate)
+                .build()
+        server.useHttps(serverCertificates.sslSocketFactory(), false)
         server.start()
 
         val errorMapper = MaterialCaptureErrorMapper()
-        val httpClient = OkHttpClient.Builder().callTimeout(500, TimeUnit.MILLISECONDS).build()
+        val httpClient =
+            OkHttpClient.Builder()
+                .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager)
+                .hostnameVerifier { _, _ -> true }
+                .callTimeout(500, TimeUnit.MILLISECONDS)
+                .build()
         val json = Json { ignoreUnknownKeys = true }
         val retrofit =
             Retrofit.Builder()
@@ -81,6 +101,18 @@ class WordPressDestinationTest {
         }
 
     @Test
+    fun `invalid saved site URL fails safely without making a network call`() =
+        runTest {
+            val settings = AppSettings("https://", "user", "app-password", ConnectionMethod.REST)
+            val destination = WordPressDestination(factory, fixedSettings(settings), FakeLogger())
+
+            val result = destination.send(item)
+
+            assertEquals(CaptureError.InvalidSettings, (result.exceptionOrNull() as CaptureException).error)
+            assertEquals(0, server.requestCount)
+        }
+
+    @Test
     fun `hits xmlrpc php and logs XML_RPC when that's the current setting`() =
         runTest {
             server.enqueue(MockResponse().setResponseCode(200).setBody(successXmlRpcResponse()))
@@ -89,7 +121,9 @@ class WordPressDestinationTest {
 
             val result = destination.send(item)
 
-            assertTrue(result.isSuccess)
+            assertTrue(result.isSuccess) {
+                "Expected XML-RPC success, got ${(result.exceptionOrNull() as? CaptureException)?.error}"
+            }
             assertEquals("/xmlrpc.php", server.takeRequest().path)
             assertEquals(listOf("Publishing via XML_RPC"), logger.messages)
         }
@@ -103,7 +137,9 @@ class WordPressDestinationTest {
 
             val result = destination.send(item)
 
-            assertTrue(result.isSuccess)
+            assertTrue(result.isSuccess) {
+                "Expected REST success, got ${(result.exceptionOrNull() as? CaptureException)?.error}"
+            }
             assertEquals("/wp-json/material-capture/v1/draft", server.takeRequest().path)
             assertEquals(listOf("Publishing via REST"), logger.messages)
         }
@@ -129,10 +165,13 @@ class WordPressDestinationTest {
         """.trimIndent()
 
     private fun fixedSettings(connectionMethod: ConnectionMethod): SettingsRepository =
+        fixedSettings(AppSettings(server.url("/").toString().trimEnd('/'), "user", "app-password", connectionMethod))
+
+    private fun fixedSettings(appSettings: AppSettings): SettingsRepository =
         object : SettingsRepository {
             override suspend fun hasSettings() = true
 
-            override suspend fun get() = AppSettings(server.url("/").toString().trimEnd('/'), "user", "app-password", connectionMethod)
+            override suspend fun get() = appSettings
 
             override suspend fun save(settings: AppSettings) {}
         }

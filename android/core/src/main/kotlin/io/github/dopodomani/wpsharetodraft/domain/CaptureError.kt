@@ -23,6 +23,12 @@ sealed interface CaptureError {
     /** 500 insert_failed. */
     data class ServerError(val detail: String?) : CaptureError
 
+    /** HTTP 429 from WordPress, a proxy, or a WAF. Safe to retry after waiting. */
+    data object RateLimited : CaptureError
+
+    /** HTTP 503 from WordPress or its upstream. Safe to retry later. */
+    data object ServiceUnavailable : CaptureError
+
     /**
      * Split out of a single bucket, since each has a different likely cause and a
      * different user-facing fix -- confirmed in Phase 3a review round 2.
@@ -43,6 +49,9 @@ sealed interface CaptureError {
 
     /** App-local: Settings was never completed. Not surfaced as an Error state -- see docs/phase3-android-app-design.md#1-screen-transition-diagram. */
     data object SettingsNotConfigured : CaptureError
+
+    /** App-local: saved settings contain a site URL that is unsafe or cannot be parsed. */
+    data object InvalidSettings : CaptureError
 
     /** Anything unrecognized. */
     data class Unknown(val detail: String?) : CaptureError

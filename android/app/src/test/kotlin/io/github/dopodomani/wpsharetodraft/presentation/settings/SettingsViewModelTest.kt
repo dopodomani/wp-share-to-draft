@@ -13,8 +13,11 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 /**
  * Confirms the fix for a real bug: the ViewModel used to always start from a blank
@@ -95,6 +98,66 @@ class SettingsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "https://",
+            "http://example.com",
+            "https://user:password@example.com",
+            "https://example.com?rest_route=/",
+            "https://example.com/#fragment",
+            "https://example.com:invalid",
+            "not a URL",
+        ],
+    )
+    fun `save rejects values that are not HTTPS WordPress roots`(siteUrl: String) =
+        runTest {
+            val repository = unconfiguredSettings()
+            val viewModel = SettingsViewModel(repository)
+            enterRequiredSettings(viewModel, siteUrl)
+
+            viewModel.save()
+
+            val state = viewModel.uiState.value as SettingsUiState.Editing
+            assertEquals("有効なHTTPSのサイトURLを入力してください", state.validationError)
+            assertNull(repository.lastSaved)
+        }
+
+    @Test
+    fun `save canonicalizes HTTPS URL while preserving a WordPress subdirectory`() =
+        runTest {
+            val repository = unconfiguredSettings()
+            val viewModel = SettingsViewModel(repository)
+            enterRequiredSettings(viewModel, "  HTTPS://EXAMPLE.COM:443/news site/  ")
+
+            viewModel.save()
+
+            assertEquals(SettingsUiState.Saved, viewModel.uiState.value)
+            assertEquals("https://example.com/news%20site", repository.lastSaved?.siteUrl)
+        }
+
+    @Test
+    fun `save accepts a non-default HTTPS port`() =
+        runTest {
+            val repository = unconfiguredSettings()
+            val viewModel = SettingsViewModel(repository)
+            enterRequiredSettings(viewModel, "https://example.com:8443/wordpress/")
+
+            viewModel.save()
+
+            assertEquals("https://example.com:8443/wordpress", repository.lastSaved?.siteUrl)
+            assertTrue(viewModel.uiState.value is SettingsUiState.Saved)
+        }
+
+    private fun enterRequiredSettings(
+        viewModel: SettingsViewModel,
+        siteUrl: String,
+    ) {
+        viewModel.onSiteUrlChanged(siteUrl)
+        viewModel.onUsernameChanged("user")
+        viewModel.onApplicationPasswordChanged("app-password")
+    }
 
     private fun fixedSettings(settings: AppSettings): SettingsRepository =
         object : SettingsRepository {

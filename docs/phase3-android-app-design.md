@@ -30,7 +30,7 @@ android/
 │   └── src/
 │       ├── main/kotlin/.../
 │       │   ├── domain/            # CaptureItem, DraftResult, Destination, SettingsRepository, CaptureError, use cases
-│       │   └── data/              # MaterialCaptureApi, DTOs, WordPressDestination, MaterialCaptureErrorMapper, AuthInterceptor
+│       │   └── data/              # MaterialCaptureApi, DTOs, WordPressDestination, MaterialCaptureErrorMapper
 │       │                          # (Retrofit/OkHttp/kotlinx.serialization are plain JVM libraries — no Android SDK needed)
 │       └── test/kotlin/.../       # JUnit5 + MockWebServer + Mockery-equivalent fakes — runs with `gradle :core:test`, no SDK
 └── app/                           # Android application module — com.android.application + Hilt + Compose
@@ -246,6 +246,13 @@ interface SettingsRepository {
 data class AppSettings(val siteUrl: String, val username: String, val applicationPassword: String)
 ```
 
+`siteUrl` is validated with the same OkHttp URL model used by the network layer before it is
+persisted. It must be an absolute HTTPS URL with a host. Embedded credentials, query strings,
+and fragments are rejected because this value represents a WordPress installation root, not an
+individual resource. A path is allowed for WordPress installations in a subdirectory. The saved
+form is canonicalized by OkHttp (including host/scheme normalization and removal of a trailing
+slash), so the REST and XML-RPC publishers can append their endpoint paths safely.
+
 ```kotlin
 // data — the only layer allowed to know about Retrofit, OkHttp, or EncryptedSharedPreferences
 class WordPressDestination @Inject constructor(
@@ -259,7 +266,8 @@ class WordPressDestination @Inject constructor(
 
         return try {
             val url = "${settings.siteUrl}/wp-json/material-capture/v1/draft"
-            val response = api.createDraft(url, DraftRequestDto.from(item))
+            val authorization = Credentials.basic(settings.username, settings.applicationPassword)
+            val response = api.createDraft(url, authorization, DraftRequestDto.from(item))
             if (response.isSuccessful) {
                 Result.success(response.body()!!.toDomain())
             } else {
@@ -279,14 +287,22 @@ class EncryptedSettingsRepository @Inject constructor(
 }
 ```
 
-`WordPressDestination` never reads `Authorization`-header details itself — that's `AuthInterceptor`'s job (§5) — it only supplies the full request URL and body, keeping it focused on the one thing a `Destination` implementation should own: "how do I hand this `CaptureItem` to *this particular* sink."
+`WordPressDestination` never reads `Authorization`-header details itself. `RestPublisher` creates
+the Basic Auth value from the same validated `AppSettings` used to construct the endpoint URL and
+passes it only to the REST Retrofit method. The shared `OkHttpClient` carries no authentication
+interceptor, so XML-RPC and any future client using it cannot inherit the REST credential by
+accident.
 
 ## 5. Retrofit API
 
 ```kotlin
 interface MaterialCaptureApi {
     @POST
-    suspend fun createDraft(@Url url: String, @Body request: DraftRequestDto): Response<DraftResponseDto>
+    suspend fun createDraft(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
+        @Body request: DraftRequestDto,
+    ): Response<DraftResponseDto>
 }
 ```
 
@@ -325,33 +341,24 @@ data class DraftResponseDto(
 
 **JSON library — confirmed in review: `kotlinx.serialization`** (via `retrofit2-kotlinx-serialization-converter`), being Kotlin-native and requiring no reflection or annotation-processor step, over Moshi or Gson. Rationale recorded as an ADR in [docs/tech-decisions.md](tech-decisions.md#10-json-library-kotlinxserialization).
 
-**Auth header injection** — an OkHttp application interceptor, not something each `Destination`/API call constructs itself:
+**Auth header scope** — no shared authentication interceptor. `RestPublisher` passes the header
+explicitly to the REST-only Retrofit method:
 
 ```kotlin
-class AuthInterceptor @Inject constructor(
-    private val settingsRepository: SettingsRepository,
-) : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
-        val settings = runBlocking { settingsRepository.get() }
-        val request = if (settings == null) {
-            chain.request()
-        } else {
-            val basic = okhttp3.Credentials.basic(settings.username, settings.applicationPassword)
-            chain.request().newBuilder().addHeader("Authorization", basic).build()
-        }
-        return chain.proceed(request)
-    }
-}
+val authorization = Credentials.basic(settings.username, settings.applicationPassword)
+api.createDraft(url, authorization, DraftRequestDto.from(item))
 ```
 
-(`okhttp3.Credentials.basic(...)` — OkHttp's own Basic-Auth header builder, fully qualified here since it's unrelated to this app's own domain types; noted so it isn't mistaken for a stray import during implementation.)
+Both the endpoint URL and credentials come from the same already-validated `AppSettings`. This
+also removes the blocking settings lookup that an interceptor would otherwise need. XML-RPC keeps
+its credentials solely in the XML-RPC method parameters required by WordPress core.
 
 ## 6. Hilt DI
 
 ```mermaid
 flowchart TB
     subgraph NetworkModule
-        OkHttp["OkHttpClient\n(+ AuthInterceptor)"]
+        OkHttp["OkHttpClient\n(no global auth)"]
         RetrofitInst["Retrofit\n(placeholder baseUrl, kotlinx.serialization converter)"]
         ApiInst["MaterialCaptureApi"]
     end
@@ -368,7 +375,7 @@ flowchart TB
     ApiInst --> DestBind
 ```
 
-- **`NetworkModule`** (`@Provides`, `@Singleton`): builds the shared `OkHttpClient` (registers `AuthInterceptor`), the `Retrofit` instance (placeholder base URL, per §5), and `MaterialCaptureApi`.
+- **`NetworkModule`** (`@Provides`, `@Singleton`): builds the credential-free shared `OkHttpClient`, the `Retrofit` instance (placeholder base URL, per §5), and `MaterialCaptureApi`.
 - **`StorageModule`** (`@Provides`, `@Singleton`): builds the `EncryptedSharedPreferences` instance (Jetpack Security, Keystore-backed — per [docs/security.md](security.md#credential-storage-android)), exposed only as a plain `SharedPreferences` type so nothing outside `data/local` needs to know it's the encrypted variant.
 - **`RepositoryModule`** (`@Binds`): `Destination → WordPressDestination`, `SettingsRepository → EncryptedSettingsRepository`. `@Binds` (interface-to-impl), not `@Provides`, since neither needs custom construction logic beyond `@Inject constructor`.
 - ViewModels use `@HiltViewModel` + constructor injection, wired automatically by `hiltViewModel()` in the Compose navigation graph — no manual ViewModel factory code, unlike the WordPress plugin's manual composition root (Hilt makes a container appropriate here in a way it wasn't for the small PHP object graph — see [docs/tech-decisions.md](tech-decisions.md#6-dependency-injection-hilt-android-manual-constructor-injection-php) for why the two sides differ).
@@ -383,6 +390,8 @@ sealed interface CaptureError {
     data object InsufficientCapability : CaptureError                                // 403 insufficient_capability
     data object CategoryUnavailable : CaptureError                                    // 409 category_unavailable
     data class ServerError(val detail: String?) : CaptureError                       // 500 insert_failed
+    data object RateLimited : CaptureError                                           // HTTP 429, retry later
+    data object ServiceUnavailable : CaptureError                                    // HTTP 503, retry later
 
     /** Confirmed in review: split out of a single NetworkUnavailable bucket, since each
      *  has a different likely cause and a different user-facing fix. */
@@ -394,6 +403,7 @@ sealed interface CaptureError {
     }
 
     data object SettingsNotConfigured : CaptureError                                 // app-local: Settings never completed
+    data object InvalidSettings : CaptureError                                       // app-local: saved site URL is invalid
     data class Unknown(val detail: String?) : CaptureError                           // anything unrecognized
 }
 ```
@@ -430,11 +440,14 @@ User-facing presentation (in `ConfirmDraftScreen`, driven by `ConfirmDraftUiStat
 | `InsufficientCapability` | "投稿を作成する権限がありません" | Open Settings (switch account) |
 | `CategoryUnavailable` | "素材候補カテゴリーが見つかりません。WordPress側の設定を確認してください" | Retry (in case it was just re-created) |
 | `ServerError` | "サーバーエラーが発生しました" | Retry |
+| `RateLimited` | "送信回数が制限されています。しばらく待って再試行してください" | Retry |
+| `ServiceUnavailable` | "WordPressを一時的に利用できません" | Retry |
 | `Network.Timeout` | "接続がタイムアウトしました" | Retry |
 | `Network.DnsFailure` | "サイトのURLが見つかりません。URLを確認してください" | Edit (fix the site URL in Settings) |
 | `Network.SslFailure` | "サイトの証明書を確認できませんでした" | Retry (transient) or Edit (persistent misconfiguration) |
 | `Network.Unreachable` | "ネットワークに接続できません" | Retry |
 | `SettingsNotConfigured` | *(not user-visible as an error — this routes straight to Settings per §1, before Confirm is ever shown)* | — |
+| `InvalidSettings` | "サイトURLの設定が正しくありません" | Open Settings |
 | `Unknown` | "予期しないエラーが発生しました" | Retry |
 
 ## 8. State transitions (Loading / Success / Error)

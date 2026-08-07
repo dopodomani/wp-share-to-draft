@@ -103,13 +103,43 @@ class MaterialCaptureXmlRpcApiTest {
         }
 
     @Test
-    fun `a malformed non-XML body maps to a Fault instead of crashing`() =
+    fun `a non-XML body is classified explicitly`() =
         runTest {
             server.enqueue(MockResponse().setResponseCode(200).setBody("not xml at all"))
 
             val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
 
-            assertTrue(result is XmlRpcResult.Fault)
+            assertEquals(XmlRpcResult.ProtocolError(XmlRpcProtocolError.NON_XML_RESPONSE), result)
+        }
+
+    @Test
+    fun `an empty body is classified explicitly`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody(""))
+
+            val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
+
+            assertEquals(XmlRpcResult.ProtocolError(XmlRpcProtocolError.EMPTY_RESPONSE), result)
+        }
+
+    @Test
+    fun `a response larger than one MiB is rejected before XML parsing`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("<" + "x".repeat(1_048_576)))
+
+            val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
+
+            assertEquals(XmlRpcResult.ProtocolError(XmlRpcProtocolError.RESPONSE_TOO_LARGE), result)
+        }
+
+    @Test
+    fun `a non-2xx response is classified before its body is parsed`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(429).setBody(successResponse()))
+
+            val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
+
+            assertEquals(XmlRpcResult.HttpError(429), result)
         }
 
     /**
@@ -126,7 +156,7 @@ class MaterialCaptureXmlRpcApiTest {
 
             val result = api.createDraft(server.url("/xmlrpc.php").toString(), "user", "app-password", item)
 
-            assertTrue(result is XmlRpcResult.Fault)
+            assertEquals(XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML), result)
         }
 
     private fun xxePayloadResponse(): String =

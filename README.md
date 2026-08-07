@@ -104,6 +104,21 @@ wp-share-to-draft/
 └── .github/                   # issue/PR templates, CI workflows (added Phase 2+)
 ```
 
+## Release artifacts
+
+Pushing a tag matching `v*` runs [the release workflow](.github/workflows/release.yml), which
+publishes these files to the matching GitHub Release:
+
+- `material-capture-<tag>.zip` — installable WordPress plugin with a
+  `material-capture/` root and production Composer autoloader
+- `wp-share-to-draft-<tag>.apk` — debug-signed Android APK
+- `SHA256SUMS` — checksums for both artifacts
+
+The WordPress ZIP excludes tests, scripts, Composer manifests, and other development-only files.
+CI extracts it and loads `material-capture.php` through the packaged `vendor/autoload.php` before
+publishing. The same build can be exercised without creating a release through the workflow's
+manual dispatch action.
+
 ## Development environment
 
 This project is developed across a **main PC** (full Android Studio/SDK/emulator, for anything Android-SDK-dependent) and a **secondary PC** (JDK + Gradle only, for `domain`/`application`-layer work on both the Android and WordPress sides, which needs no Android SDK). Two AI coding assistants — Claude Code (architecture/multi-file/docs coherence) and Codex (scoped review/fixes/CI triage) — share the work under an explicit division of labor. [Android CI](.github/workflows/android-ci.yml) fills the gap the secondary PC can't: it builds `:app` on a real Android SDK on every push/PR.

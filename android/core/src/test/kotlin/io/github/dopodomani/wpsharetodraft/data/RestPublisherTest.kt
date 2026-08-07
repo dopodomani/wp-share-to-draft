@@ -5,9 +5,9 @@ import io.github.dopodomani.wpsharetodraft.domain.AppSettings
 import io.github.dopodomani.wpsharetodraft.domain.CaptureError
 import io.github.dopodomani.wpsharetodraft.domain.CaptureException
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
-import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -49,19 +49,9 @@ class RestPublisherTest {
         server.start()
         settings = AppSettings(server.url("/").toString().trimEnd('/'), "user", "app-password")
 
-        val settingsRepository =
-            object : SettingsRepository {
-                override suspend fun hasSettings() = true
-
-                override suspend fun get() = settings
-
-                override suspend fun save(settings: AppSettings) {}
-            }
-
         val json = Json { ignoreUnknownKeys = true }
         val client =
             OkHttpClient.Builder()
-                .addInterceptor(AuthInterceptor(settingsRepository))
                 .callTimeout(500, TimeUnit.MILLISECONDS)
                 .build()
         val retrofit =
@@ -100,7 +90,7 @@ class RestPublisherTest {
 
             val recorded = server.takeRequest()
             assertEquals("POST", recorded.method)
-            assertTrue(recorded.getHeader("Authorization")?.startsWith("Basic ") == true)
+            assertEquals(Credentials.basic("user", "app-password"), recorded.getHeader("Authorization"))
         }
 
     @Test

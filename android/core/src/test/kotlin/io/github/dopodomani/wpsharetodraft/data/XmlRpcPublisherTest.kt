@@ -12,6 +12,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -65,7 +66,9 @@ class XmlRpcPublisherTest {
 
             assertTrue(result.isSuccess)
             assertEquals(1L, result.getOrThrow().postId)
-            assertEquals("/xmlrpc.php", server.takeRequest().path)
+            val request = server.takeRequest()
+            assertEquals("/xmlrpc.php", request.path)
+            assertNull(request.getHeader("Authorization"))
         }
 
     @Test
@@ -86,6 +89,26 @@ class XmlRpcPublisherTest {
             val result = publisher.publish(item, settings)
 
             assertEquals(CaptureError.Network.Unreachable, (result.exceptionOrNull() as CaptureException).error)
+        }
+
+    @Test
+    fun `HTTP 429 maps to RateLimited`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(429))
+
+            val result = publisher.publish(item, settings)
+
+            assertEquals(CaptureError.RateLimited, (result.exceptionOrNull() as CaptureException).error)
+        }
+
+    @Test
+    fun `HTTP 503 maps to ServiceUnavailable`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(503))
+
+            val result = publisher.publish(item, settings)
+
+            assertEquals(CaptureError.ServiceUnavailable, (result.exceptionOrNull() as CaptureException).error)
         }
 
     private fun successResponse(): String =

@@ -198,10 +198,13 @@ private fun CaptureError.toPresentation(): ErrorPresentation =
         CaptureError.CategoryUnavailable ->
             ErrorPresentation("素材候補カテゴリーが見つかりません。WordPress側の設定を確認してください", ErrorAction.RETRY)
         is CaptureError.ServerError -> ErrorPresentation("サーバーエラーが発生しました", ErrorAction.RETRY)
+        CaptureError.RateLimited -> ErrorPresentation("送信回数が制限されています。しばらく待って再試行してください", ErrorAction.RETRY)
+        CaptureError.ServiceUnavailable -> ErrorPresentation("WordPressを一時的に利用できません", ErrorAction.RETRY)
         CaptureError.Network.Timeout -> ErrorPresentation("接続がタイムアウトしました", ErrorAction.RETRY)
         CaptureError.Network.DnsFailure -> ErrorPresentation("サイトのURLが見つかりません。URLを確認してください", ErrorAction.OPEN_SETTINGS)
         CaptureError.Network.SslFailure -> ErrorPresentation("サイトの証明書を確認できませんでした", ErrorAction.RETRY)
         CaptureError.Network.Unreachable -> ErrorPresentation("ネットワークに接続できません", ErrorAction.RETRY)
         CaptureError.SettingsNotConfigured -> ErrorPresentation("設定が完了していません", ErrorAction.OPEN_SETTINGS)
+        CaptureError.InvalidSettings -> ErrorPresentation("サイトURLの設定が正しくありません", ErrorAction.OPEN_SETTINGS)
         is CaptureError.Unknown -> ErrorPresentation("予期しないエラーが発生しました", ErrorAction.RETRY)
     }
