@@ -14,6 +14,7 @@ import org.xml.sax.InputSource
 import java.io.StringReader
 import java.time.Instant
 import javax.inject.Inject
+import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
@@ -112,6 +113,14 @@ class MaterialCaptureXmlRpcApi
                 .replace(">", "&gt;")
 
         private fun parseMethodResponse(xml: String): XmlRpcResult {
+            // Android's bundled XML parser does not consistently implement the Xerces
+            // disallow-doctype-decl feature URI (Pixel 9a throws ParserConfigurationException
+            // before parsing even a normal WordPress response). Reject the XML declaration
+            // that can introduce entities before invoking the platform parser instead.
+            if (xml.contains(DOCTYPE_DECLARATION, ignoreCase = true)) {
+                return XmlRpcResult.ProtocolError(XmlRpcProtocolError.MALFORMED_XML)
+            }
+
             val document =
                 runCatching {
                     hardenedDocumentBuilderFactory().newDocumentBuilder().parse(InputSource(StringReader(xml)))
@@ -186,25 +195,24 @@ class MaterialCaptureXmlRpcApi
         }
 
         /**
-         * A plain [DocumentBuilderFactory] resolves DOCTYPE declarations and external entities
-         * by default, making it vulnerable to XXE (billion-laughs, local file disclosure via
-         * `<!ENTITY>`, SSRF via an external DTD fetch) if it ever parses attacker-controlled
-         * XML. The site we call is the user's own HTTPS-configured WordPress host, but a
-         * compromised or misbehaving server is exactly the scenario worth defending against
-         * here -- this is defense in depth, not a fix for a specific observed attack. WordPress
-         * XML-RPC responses never legitimately need a DOCTYPE or external entities, so
-         * disabling them outright has no functional cost.
+         * DOCTYPE is rejected before this factory is invoked. These features add defense in
+         * depth on parsers that support them, but are deliberately best-effort because Android's
+         * bundled parser varies by OS release and throws for some standard/Xerces feature URIs.
+         * Security does not depend on those optional calls: without a DOCTYPE, this response
+         * cannot declare the external or recursive entities used by XXE/billion-laughs attacks.
          */
         private fun hardenedDocumentBuilderFactory(): DocumentBuilderFactory =
             DocumentBuilderFactory.newInstance().apply {
-                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-                setFeature("http://xml.org/sax/features/external-general-entities", false)
-                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                runCatching { setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true) }
+                runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+                runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+                runCatching { setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
                 isExpandEntityReferences = false
             }
 
         private companion object {
             const val METHOD_NAME = "material_capture.createDraft"
+            const val DOCTYPE_DECLARATION = "<!DOCTYPE"
             internal const val MAX_RESPONSE_BYTES = 1_048_576L
             val XML_MEDIA_TYPE = "text/xml".toMediaType()
         }
