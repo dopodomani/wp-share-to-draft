@@ -128,7 +128,7 @@ Body template (server-rendered, not client-supplied HTML, to prevent injection �
 
 ## XML-RPC fallback (`material_capture.createDraft`)
 
-**Status: designed, Phase 2c/2d (not yet implemented).** An opt-in alternative to the REST endpoint above, for hosting environments that don't forward the `Authorization` header to PHP (confirmed on at least one real production host — see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). REST remains the default and recommended transport; this exists purely as a fallback, selected explicitly per site in the Android app's Settings screen.
+**Status: implemented (Phase 2c/2d, Android counterpart Phase 3c/3d).** An opt-in alternative to the REST endpoint above, for hosting environments that don't forward the `Authorization` header to PHP (confirmed on at least one real production host — see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). REST remains the default and recommended transport; this exists purely as a fallback, selected explicitly per site in the Android app's Settings screen. Verified end-to-end against production (dopodomani.biz) — see [docs/phase3-android-smoke-test-results.md](phase3-android-smoke-test-results.md).
 
 **Endpoint:** the site's standard `xmlrpc.php`, over HTTPS only (same requirement as REST — see [security.md](security.md#transport-security)).
 

@@ -35,7 +35,7 @@ Long-term maintainability, readability, and extensibility come before speed of i
 ## WordPress
 
 - Ship as a standalone plugin under `wordpress-plugin/` — never as `functions.php` code in a theme.
-- Follow WordPress Coding Standards (PHPCS with `WordPress` ruleset) once tooling is added in Phase 2.
+- Follow WordPress Coding Standards (PHPCS with `WordPress` ruleset — configured in `wordpress-plugin/phpcs.xml.dist`, run via `composer lint`).
 - Center the plugin around its REST API (`Rest/` controllers); keep WordPress core calls (`wp_insert_post`, etc.) isolated behind repository classes (e.g. `WpPostRepository`) so `Domain/` stays testable without a live WordPress instance.
 
 ## Security

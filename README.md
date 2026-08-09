@@ -2,7 +2,7 @@
 
 > Capture anything you read on your phone into a WordPress draft, tagged `[INBOX]`, in two taps — the first step of an AI-assisted news-to-article pipeline.
 
-**Status:** 🚧 Phase 2 (WordPress plugin implemented, pending a real-WordPress smoke test) / Phase 3a (Android design approved, implementation starting) — see [ROADMAP.md](ROADMAP.md).
+**Status:** 🚧 Phase 2/3 implemented and verified against production (REST + XML-RPC fallback, both sides), Phase 4 (integration testing) on hold — see [ROADMAP.md](ROADMAP.md). Remaining pre-launch gaps: Phase 2b/3b manual smoke-test checklists still unrun, Phase 5 (OSS launch) items not started.
 
 [日本語版はこちら](#日本語)
 
@@ -152,7 +152,7 @@ MIT — see [LICENSE](LICENSE).
 
 Android ChromeなどでWebページを「共有」した2タップで、WordPressに `[INBOX]` 付きの下書きを自動作成するプロジェクトです。
 
-**現在のフェーズ:** WordPressプラグイン実装済み（実WordPress環境でのスモークテスト待ち）、Android設計承認済み（Phase 3b実装着手）。
+**現在のフェーズ:** WordPress側・Android側とも実装済み（REST・XML-RPCフォールバック双方、本番環境dopodomani.biz で動作確認済み）。Phase 4（結合テスト）は保留中。Phase 2b/3bの手動スモークテストチェックリストは未実施、Phase 5（OSS公開)は未着手。
 
 **やること:** Android共有 → 確認画面 → WordPress下書き作成、まで。
 **やらないこと:** それ以降（GitHub Actions以降の素材ノート生成・Codex・記事作成）は既存の運用のまま変更しません。
