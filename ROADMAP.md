@@ -131,7 +131,7 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 
 **Definition of Done:**
 - [ ] `LICENSE` (MIT), `CONTRIBUTING.md`, `CHANGELOG.md` finalized for public contributors
-- [ ] Issue templates, PR template added under `.github/`
+- [x] Issue templates, PR template added under `.github/`
 - [x] GitHub Actions WordPress CI: locked Composer install, PHPUnit on PHP 8.1/8.2/8.3, Composer validation, and PHPCS — [`.github/workflows/wordpress-ci.yml`](.github/workflows/wordpress-ci.yml)
 - [x] Dependency maintenance: Android Version Catalog, weekly Dependabot updates for Gradle/Composer/Actions, and full-SHA pinning for every third-party Action
 - [ ] Documentation CI: Markdown lint, link checking, and Mermaid syntax checking

@@ -5,6 +5,7 @@ All notable changes to this project are documented here. Format loosely follows 
 ## [Unreleased]
 
 ### Added
+- `.github/ISSUE_TEMPLATE/` (bug report, feature request) and `.github/PULL_REQUEST_TEMPLATE.md` (ROADMAP Phase 5 item).
 - `wordpress-plugin/scripts/setup-local-sqlite-env.sh`: builds a throwaway local WordPress instance (WordPress core + the official SQLite Database Integration plugin, served via `php -S`) for testing the plugin's REST/XML-RPC endpoints without Docker or the production site. Idempotent, symlinks the plugin directory so local edits apply immediately. Documented in docs/development.md. Dev tooling only — not wired into CI or tied to any ROADMAP phase.
 
 ### Changed
