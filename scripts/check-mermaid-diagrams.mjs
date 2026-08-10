@@ -38,6 +38,13 @@ let totalBlocks = 0;
 let failures = 0;
 const tmpDir = mkdtempSync(join(tmpdir(), "mermaid-check-"));
 
+// GitHub Actions' Ubuntu runners have no usable Chromium sandbox namespace, so
+// mermaid-cli's headless-Chrome render fails outright without this -- see
+// https://pptr.dev/troubleshooting. Safe here: the only page ever loaded is
+// mermaid-cli's own local renderer over this repo's own trusted diagram source.
+const puppeteerConfigPath = join(tmpDir, "puppeteer-config.json");
+writeFileSync(puppeteerConfigPath, JSON.stringify({ args: ["--no-sandbox", "--disable-setuid-sandbox"] }));
+
 try {
   for (const file of files) {
     const content = readFileSync(file, "utf-8");
@@ -50,7 +57,17 @@ try {
       try {
         execFileSync(
           process.platform === "win32" ? "npx.cmd" : "npx",
-          ["--yes", "@mermaid-js/mermaid-cli", "-i", inputPath, "-o", outputPath, "--quiet"],
+          [
+            "--yes",
+            "@mermaid-js/mermaid-cli",
+            "-i",
+            inputPath,
+            "-o",
+            outputPath,
+            "--quiet",
+            "--puppeteerConfigFile",
+            puppeteerConfigPath,
+          ],
           { stdio: "pipe", shell: process.platform === "win32" },
         );
       } catch (err) {
