@@ -67,7 +67,7 @@ This table is the general policy; [docs/phase3-android-app-design.md §9](phase3
 
 No direct implementation commits to `main`. One branch per feature, kept simple (this is a small personal-scale project — avoid over-branching):
 
-```
+```text
 main
   ├─ feature/phase3-android
   │   ├─ feature/android-intent-parser
@@ -82,21 +82,25 @@ A large phase (e.g. all of Phase 3) is carried on one parent feature branch; a s
 ## Switching machines mid-task
 
 **Before starting work on either PC:**
+
 ```bash
 git status
 git branch --show-current
 git fetch origin
 git pull --ff-only   # if the branch has upstream commits not yet local
 ```
+
 Never overwrite or discard uncommitted changes found this way without understanding what they are first.
 
 **Before switching to the other PC:**
+
 ```bash
 git status
 git add <files>
 git commit
 git push
 ```
+
 Don't leave local, unpushed changes and switch machines — if a task must be paused mid-way, commit a meaningful intermediate commit (or an explicit WIP commit, squashed/cleaned up before the branch merges) rather than losing continuity.
 
 ## CI's role

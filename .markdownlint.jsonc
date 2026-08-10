@@ -1,0 +1,23 @@
+{
+  // Long lines are normal in this repo's prose-style docs (docs/tech-decisions.md etc.) --
+  // enforcing an 80-col wrap would just cause churn without improving readability.
+  "MD013": false,
+  // Docs mix inline HTML (e.g. <br>, collapsible <details>) intentionally in a few places.
+  "MD033": false,
+  // First line doesn't have to be an H1 -- some docs open with a short blockquote/context line.
+  "MD041": false,
+  // Table/list formatting nitpicks that don't affect rendering and would just cause
+  // large-scale reformatting of already-published docs (including dated smoke-test
+  // result logs, which are records, not living docs) for no readability gain.
+  "MD032": false,
+  "MD034": false,
+  "MD036": false,
+  "MD038": false,
+  "MD055": false,
+  "MD058": false,
+  "MD060": false,
+  // CHANGELOG.md appends dated entries under repeated ### Added/### Changed headings
+  // (chronological log, not merged-per-release) rather than merging into one heading
+  // per section -- flag as duplicate would just churn history for no reason.
+  "MD024": false
+}

@@ -49,7 +49,7 @@ data class Editing(
 
 UI: "接続方式" with two radio options, **XML-RPC listed first (default)**, then REST API:
 
-```
+```text
 接続方式
 ◉ XML-RPC
 ○ REST API

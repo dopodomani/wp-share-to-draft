@@ -8,7 +8,7 @@ Base path: `https://<your-site>/wp-json/material-capture/v1`
 
 **WordPress Application Passwords** (built into WordPress core since 5.6), sent as HTTP Basic Auth over **HTTPS only**.
 
-```
+```text
 Authorization: Basic base64(username:application_password)
 ```
 
@@ -116,7 +116,7 @@ Returns the created post's current status, for the app to confirm nothing was ov
 
 Body template (server-rendered, not client-supplied HTML, to prevent injection — see security doc). Note the split between server time and client-reported time:
 
-```
+```text
 元URL: {url, line omitted entirely if url is empty}
 保存日時: {server creation time, always}
 共有日時: {client-reported shared_at, if provided — otherwise omitted}

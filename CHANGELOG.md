@@ -5,13 +5,18 @@ All notable changes to this project are documented here. Format loosely follows 
 ## [Unreleased]
 
 ### Added
+
+- `WordPressSiteUrlTest` (`android/core`): unit coverage for the site-URL normalizer (HTTPS-only, trailing-slash trim, credentials/query/fragment rejection) that had none.
+- Documentation CI (`.github/workflows/docs-ci.yml`, ROADMAP Phase 5 item): markdownlint (`.markdownlint.jsonc`/`.markdownlint-cli2.jsonc`), lychee link checking (`.github/lychee.toml`), and Mermaid diagram syntax validation (`scripts/check-mermaid-diagrams.mjs`) on every push/PR touching `**/*.md`.
 - `.github/ISSUE_TEMPLATE/` (bug report, feature request) and `.github/PULL_REQUEST_TEMPLATE.md` (ROADMAP Phase 5 item).
 - `wordpress-plugin/scripts/setup-local-sqlite-env.sh`: builds a throwaway local WordPress instance (WordPress core + the official SQLite Database Integration plugin, served via `php -S`) for testing the plugin's REST/XML-RPC endpoints without Docker or the production site. Idempotent, symlinks the plugin directory so local edits apply immediately. Documented in docs/development.md. Dev tooling only — not wired into CI or tied to any ROADMAP phase.
 
 ### Changed
+
 - ADR #12: `url` is no longer a required field on `POST /draft` or `material_capture.createDraft` (docs/tech-decisions.md). Motivated by Chrome's "share selected text" action, which doesn't reliably include the source page's URL at all — requiring one client-side just moved that failure to a 400 after a network round-trip. `Domain\DraftPayload::create()` now only validates format (`http`/`https`, well-formed) when `url` is non-empty; the rendered post body omits the "元URL: " line entirely when absent. `docs/api-spec.md` updated (REST + XML-RPC param tables, error table). Android's `ConfirmDraftViewModel.isSaveEnabled` no longer requires `url`, only `title`.
 
 ### Added
+
 - `IntentParser` now pre-fills the Confirm screen's メモ field with Chrome's shared text (docs/phase3-android-app-design.md's IntentParser revision 2). Motivated by sharing a text *selection* (rather than a whole page) from Chrome: the selected text landed only in the invisible `sharedText` field, so it looked like nothing had been captured. `sharedText` keeps receiving the same value unchanged for its existing role (raw text sent to WordPress as `shared_text`). Confirmed on real devices that Chrome doesn't reliably include the source page's URL/title for a text-selection share (site-dependent) — that stays best-effort/empty-and-editable, unchanged from before.
 - Phase 1 design docs: architecture, API spec, tech decisions, security policy, roadmap.
 - Per-phase Definition of Done and a design-review-gate process in ROADMAP.md.
@@ -43,8 +48,10 @@ All notable changes to this project are documented here. Format loosely follows 
   - Also fixed a known, previously-deferred UI bug: Settings' `Saved` state rendered nothing, leaving a permanently blank screen when Settings itself was the destination (app launched from the icon, no share pending) — now shows a "設定を保存しました" confirmation.
 
 ### Changed
+
 - Phase 2 design revised after design review: split `Support/` into `Application/` (orchestration + ports) and `Infrastructure/` (WordPress adapters); made `Domain/DraftPayload` fully dependency-free; Mockery targets are now interfaces only; category lifecycle is create-once-at-activation and never-delete; `InputSanitizer` testing split into unit (delegation + own logic) vs. integration (real sanitization); API response/error shapes and field limits made concrete (see docs/phase2-wordpress-plugin-design.md and docs/api-spec.md for details).
 - Phase 3a design revised after review: `CredentialRepository`/`Credentials` renamed to `SettingsRepository`/`AppSettings`; intent parsing extracted into its own `IntentParser` class with a dedicated test; `CaptureItem`'s role as the central domain model made explicit; `CaptureError.NetworkUnavailable` split into a `Network` sub-hierarchy (`Timeout`/`DnsFailure`/`SslFailure`/`Unreachable`).
 
 ### Fixed
+
 - Bugs only a real Android SDK build could catch, found and fixed via Android CI's first run: an illegal `--` inside an `AndroidManifest.xml` XML comment; `:core`'s Retrofit/OkHttp/kotlinx.serialization dependencies were `implementation` instead of `api`, hiding those types from `:app`; two Compose files missing `import androidx.compose.runtime.getValue`; `PasswordVisualTransformation` imported from the wrong package; Robolectric 4.13 not yet supporting API 35 (pinned both Robolectric tests to `@Config(sdk = [34])`).

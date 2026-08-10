@@ -64,7 +64,7 @@ flowchart TB
 
 ## File layout
 
-```
+```text
 wordpress-plugin/
 ├── material-capture.php              # Plugin header, bootstrap, activation/deactivation hooks
 ├── uninstall.php                     # Runs on delete; removes plugin options ONLY (never category/posts)

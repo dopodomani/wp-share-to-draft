@@ -31,7 +31,7 @@ flowchart TB
 
 ## File layout addition
 
-```
+```text
 wordpress-plugin/
 ├── includes/
 │   ├── XmlRpc/                          # new

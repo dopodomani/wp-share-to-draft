@@ -27,10 +27,13 @@ You don't need both if you only care about one side — pick LocalWP if you just
 Requires Docker Desktop and Node.js (already on the recommended install list).
 
 1. From the repository root:
+
    ```bash
    npm install -g @wordpress/env
    ```
+
 2. Create `.wp-env.json` at the repository root (temporary, for this smoke test only — not committed, since it's local test tooling, not project source):
+
    ```json
    {
        "core": "WordPress/WordPress#master",
@@ -40,11 +43,14 @@ Requires Docker Desktop and Node.js (already on the recommended install list).
        }
    }
    ```
+
    The `mappings` key is what lets the plugin appear under the `material-capture` slug in `wp-content/plugins/` even though the source lives at `wordpress-plugin/` (see [Deploying the plugin](#2-deploying-the-plugin-as-material-capture) below — `wp-env` handles this step for you via the mapping, unlike LocalWP).
 3. Start it:
+
    ```bash
    wp-env start
    ```
+
 4. It serves at `http://localhost:8888` (admin at `http://localhost:8888/wp-admin`, default credentials `admin` / `password` unless configured otherwise — check `wp-env` output on start).
 
 ## 2. Deploying the plugin as `material-capture/`
