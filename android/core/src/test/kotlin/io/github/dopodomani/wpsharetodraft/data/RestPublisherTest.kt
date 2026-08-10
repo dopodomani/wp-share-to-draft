@@ -51,11 +51,13 @@ class RestPublisherTest {
 
         val json = Json { ignoreUnknownKeys = true }
         val client =
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .callTimeout(500, TimeUnit.MILLISECONDS)
                 .build()
         val retrofit =
-            Retrofit.Builder()
+            Retrofit
+                .Builder()
                 .baseUrl(server.url("/"))
                 .client(client)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))

@@ -34,7 +34,9 @@ private fun isLinkTemplateNoise(line: String): Boolean = line.replace(LINK_TEMPL
  */
 class IntentParser
     @Inject
-    constructor(private val clock: Clock) {
+    constructor(
+        private val clock: Clock,
+    ) {
         fun parse(intent: Intent): CaptureItem {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
             val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)

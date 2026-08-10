@@ -8,7 +8,12 @@ import retrofit2.Retrofit
 
 class WordPressPublisherFactoryTest {
     private val errorMapper = MaterialCaptureErrorMapper()
-    private val api = Retrofit.Builder().baseUrl("https://example.com/").build().create(MaterialCaptureApi::class.java)
+    private val api =
+        Retrofit
+            .Builder()
+            .baseUrl("https://example.com/")
+            .build()
+            .create(MaterialCaptureApi::class.java)
     private val xmlRpcPublisher = XmlRpcPublisher(MaterialCaptureXmlRpcApi(OkHttpClient()), errorMapper)
     private val restPublisher = RestPublisher(api, errorMapper)
     private val factory = WordPressPublisherFactory(xmlRpcPublisher, restPublisher)

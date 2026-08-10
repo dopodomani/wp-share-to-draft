@@ -27,7 +27,9 @@ import javax.xml.parsers.DocumentBuilderFactory
  */
 class MaterialCaptureXmlRpcApi
     @Inject
-    constructor(private val httpClient: OkHttpClient) {
+    constructor(
+        private val httpClient: OkHttpClient,
+    ) {
         suspend fun createDraft(
             url: String,
             username: String,
@@ -36,7 +38,8 @@ class MaterialCaptureXmlRpcApi
         ): XmlRpcResult {
             val requestXml = buildMethodCallXml(username, applicationPassword, item)
             val request =
-                Request.Builder()
+                Request
+                    .Builder()
                     .url(url)
                     .post(requestXml.toRequestBody(XML_MEDIA_TYPE))
                     .build()
@@ -219,12 +222,18 @@ class MaterialCaptureXmlRpcApi
     }
 
 private sealed interface ResponseBodyResult {
-    data class Content(val xml: String) : ResponseBodyResult
+    data class Content(
+        val xml: String,
+    ) : ResponseBodyResult
 
-    data class Error(val reason: XmlRpcProtocolError) : ResponseBodyResult
+    data class Error(
+        val reason: XmlRpcProtocolError,
+    ) : ResponseBodyResult
 }
 
-enum class XmlRpcProtocolError(val detail: String) {
+enum class XmlRpcProtocolError(
+    val detail: String,
+) {
     EMPTY_RESPONSE("Empty XML-RPC response"),
     NON_XML_RESPONSE("Non-XML XML-RPC response"),
     RESPONSE_TOO_LARGE("XML-RPC response exceeds 1 MiB"),
@@ -232,11 +241,20 @@ enum class XmlRpcProtocolError(val detail: String) {
 }
 
 sealed interface XmlRpcResult {
-    data class Success(val result: DraftResult) : XmlRpcResult
+    data class Success(
+        val result: DraftResult,
+    ) : XmlRpcResult
 
-    data class Fault(val faultCode: Int, val faultString: String) : XmlRpcResult
+    data class Fault(
+        val faultCode: Int,
+        val faultString: String,
+    ) : XmlRpcResult
 
-    data class HttpError(val statusCode: Int) : XmlRpcResult
+    data class HttpError(
+        val statusCode: Int,
+    ) : XmlRpcResult
 
-    data class ProtocolError(val reason: XmlRpcProtocolError) : XmlRpcResult
+    data class ProtocolError(
+        val reason: XmlRpcProtocolError,
+    ) : XmlRpcResult
 }

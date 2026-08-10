@@ -16,7 +16,9 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel
     @Inject
-    constructor(private val settingsRepository: SettingsRepository) : ViewModel() {
+    constructor(
+        private val settingsRepository: SettingsRepository,
+    ) : ViewModel() {
         private val _uiState = MutableStateFlow<SettingsUiState>(SettingsUiState.Loading)
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -76,5 +78,4 @@ class SettingsViewModel
             val current = _uiState.value
             if (current is SettingsUiState.Editing) _uiState.value = transform(current)
         }
-
     }

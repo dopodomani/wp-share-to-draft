@@ -8,6 +8,8 @@ import javax.inject.Inject
  */
 class SubmitCaptureUseCase
     @Inject
-    constructor(private val destination: Destination) {
+    constructor(
+        private val destination: Destination,
+    ) {
         suspend fun submit(item: CaptureItem): Result<DraftResult> = destination.send(item)
     }

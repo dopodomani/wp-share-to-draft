@@ -35,7 +35,8 @@ class EncryptedSettingsRepositoryTest {
     @Before
     fun setUp() {
         prefs =
-            ApplicationProvider.getApplicationContext<Context>()
+            ApplicationProvider
+                .getApplicationContext<Context>()
                 .getSharedPreferences("test_material_capture_settings", Context.MODE_PRIVATE)
         repository = EncryptedSettingsRepository(prefs)
     }

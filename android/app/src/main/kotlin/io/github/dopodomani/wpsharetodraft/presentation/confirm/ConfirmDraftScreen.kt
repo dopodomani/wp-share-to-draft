@@ -185,7 +185,10 @@ private fun ErrorContent(
 
 private enum class ErrorAction { RETRY, EDIT, OPEN_SETTINGS }
 
-private data class ErrorPresentation(val message: String, val action: ErrorAction)
+private data class ErrorPresentation(
+    val message: String,
+    val action: ErrorAction,
+)
 
 /** Mirrors the user-facing table in docs/phase3-android-app-design.md#7-error-handling exactly. */
 private fun CaptureError.toPresentation(): ErrorPresentation =

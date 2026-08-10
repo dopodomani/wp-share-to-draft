@@ -6,7 +6,10 @@ package io.github.dopodomani.wpsharetodraft.domain
  */
 sealed interface CaptureError {
     /** 400 missing_required_field / invalid_url / invalid_shared_at. */
-    data class Validation(val field: String, val message: String) : CaptureError
+    data class Validation(
+        val field: String,
+        val message: String,
+    ) : CaptureError
 
     /** 400 https_required. */
     data object HttpsRequired : CaptureError
@@ -21,7 +24,9 @@ sealed interface CaptureError {
     data object CategoryUnavailable : CaptureError
 
     /** 500 insert_failed. */
-    data class ServerError(val detail: String?) : CaptureError
+    data class ServerError(
+        val detail: String?,
+    ) : CaptureError
 
     /** HTTP 429 from WordPress, a proxy, or a WAF. Safe to retry after waiting. */
     data object RateLimited : CaptureError
@@ -54,11 +59,15 @@ sealed interface CaptureError {
     data object InvalidSettings : CaptureError
 
     /** Anything unrecognized. */
-    data class Unknown(val detail: String?) : CaptureError
+    data class Unknown(
+        val detail: String?,
+    ) : CaptureError
 }
 
 /** Wraps a [CaptureError] as a [Throwable] so it can be carried by [kotlin.Result.failure]. */
-class CaptureException(val error: CaptureError) : Exception()
+class CaptureException(
+    val error: CaptureError,
+) : Exception()
 
 fun CaptureError.asThrowable(): Throwable = CaptureException(this)
 

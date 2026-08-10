@@ -23,8 +23,8 @@ class XmlRpcPublisher
         override suspend fun publish(
             item: CaptureItem,
             settings: AppSettings,
-        ): Result<DraftResult> {
-            return try {
+        ): Result<DraftResult> =
+            try {
                 val url = "${settings.siteUrl}/xmlrpc.php"
                 when (val response = xmlRpcApi.createDraft(url, settings.username, settings.applicationPassword, item)) {
                     is XmlRpcResult.Success -> Result.success(response.result)
@@ -35,5 +35,4 @@ class XmlRpcPublisher
             } catch (e: IOException) {
                 Result.failure(errorMapper.fromException(e).asThrowable())
             }
-        }
     }

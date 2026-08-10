@@ -10,11 +10,21 @@ import io.github.dopodomani.wpsharetodraft.domain.DraftResult
  * combination possible, since these are mutually exclusive variants, not independent flags.
  */
 sealed interface ConfirmDraftUiState {
-    data class Idle(val item: CaptureItem, val isSaveEnabled: Boolean) : ConfirmDraftUiState
+    data class Idle(
+        val item: CaptureItem,
+        val isSaveEnabled: Boolean,
+    ) : ConfirmDraftUiState
 
-    data class Loading(val item: CaptureItem) : ConfirmDraftUiState
+    data class Loading(
+        val item: CaptureItem,
+    ) : ConfirmDraftUiState
 
-    data class Success(val result: DraftResult) : ConfirmDraftUiState
+    data class Success(
+        val result: DraftResult,
+    ) : ConfirmDraftUiState
 
-    data class Error(val item: CaptureItem, val error: CaptureError) : ConfirmDraftUiState
+    data class Error(
+        val item: CaptureItem,
+        val error: CaptureError,
+    ) : ConfirmDraftUiState
 }

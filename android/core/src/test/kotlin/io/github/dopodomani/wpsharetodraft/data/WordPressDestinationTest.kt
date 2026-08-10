@@ -51,15 +51,18 @@ class WordPressDestinationTest {
     fun setUp() {
         server = MockWebServer()
         val localhostCertificate =
-            HeldCertificate.Builder()
+            HeldCertificate
+                .Builder()
                 .addSubjectAlternativeName("localhost")
                 .build()
         val serverCertificates =
-            HandshakeCertificates.Builder()
+            HandshakeCertificates
+                .Builder()
                 .heldCertificate(localhostCertificate)
                 .build()
         val clientCertificates =
-            HandshakeCertificates.Builder()
+            HandshakeCertificates
+                .Builder()
                 .addTrustedCertificate(localhostCertificate.certificate)
                 .build()
         server.useHttps(serverCertificates.sslSocketFactory(), false)
@@ -67,14 +70,16 @@ class WordPressDestinationTest {
 
         val errorMapper = MaterialCaptureErrorMapper()
         val httpClient =
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager)
                 .hostnameVerifier { _, _ -> true }
                 .callTimeout(500, TimeUnit.MILLISECONDS)
                 .build()
         val json = Json { ignoreUnknownKeys = true }
         val retrofit =
-            Retrofit.Builder()
+            Retrofit
+                .Builder()
                 .baseUrl(server.url("/"))
                 .client(httpClient)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))

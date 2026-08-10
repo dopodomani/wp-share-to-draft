@@ -20,7 +20,9 @@ private const val KEY_CONNECTION_METHOD = "connection_method"
  */
 class EncryptedSettingsRepository
     @Inject
-    constructor(private val encryptedPrefs: SharedPreferences) : SettingsRepository {
+    constructor(
+        private val encryptedPrefs: SharedPreferences,
+    ) : SettingsRepository {
         override suspend fun hasSettings(): Boolean = encryptedPrefs.contains(KEY_SITE_URL)
 
         override suspend fun get(): AppSettings? {
@@ -30,7 +32,8 @@ class EncryptedSettingsRepository
             // Absent for settings saved before this field existed -- defaults to XML_RPC,
             // same as a fresh AppSettings(), rather than failing to parse.
             val connectionMethod =
-                encryptedPrefs.getString(KEY_CONNECTION_METHOD, null)
+                encryptedPrefs
+                    .getString(KEY_CONNECTION_METHOD, null)
                     ?.let { runCatching { ConnectionMethod.valueOf(it) }.getOrNull() }
                     ?: ConnectionMethod.XML_RPC
             return AppSettings(siteUrl, username, applicationPassword, connectionMethod)

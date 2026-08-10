@@ -24,7 +24,9 @@ private val EMPTY_ITEM = CaptureItem(title = "", url = "", sharedText = null, me
 @HiltViewModel
 class ConfirmDraftViewModel
     @Inject
-    constructor(private val submitCaptureUseCase: SubmitCaptureUseCase) : ViewModel() {
+    constructor(
+        private val submitCaptureUseCase: SubmitCaptureUseCase,
+    ) : ViewModel() {
         private val _uiState =
             MutableStateFlow<ConfirmDraftUiState>(ConfirmDraftUiState.Idle(EMPTY_ITEM, isSaveEnabled = false))
         val uiState: StateFlow<ConfirmDraftUiState> = _uiState.asStateFlow()
@@ -71,7 +73,8 @@ class ConfirmDraftViewModel
         private fun submit(item: CaptureItem) {
             _uiState.value = ConfirmDraftUiState.Loading(item)
             viewModelScope.launch {
-                submitCaptureUseCase.submit(item)
+                submitCaptureUseCase
+                    .submit(item)
                     .onSuccess { result -> _uiState.value = ConfirmDraftUiState.Success(result) }
                     .onFailure { throwable ->
                         val error = throwable.asCaptureErrorOrNull() ?: CaptureError.Unknown(throwable.message)
