@@ -55,15 +55,15 @@ jobs:
       # workflow never runs instrumented tests). No secrets involved: this is a public
       # SDK download, not a signed/licensed credential. android-actions/setup-android
       # installs the cmdline-tools and accepts licenses, which would let AGP
-      # lazily auto-download compileSdk 35's platform/build-tools on first use --
+      # lazily auto-download compileSdk 37's platform/build-tools on first use --
       # but that lazy path depends on network timing during the build itself, so the
       # exact packages this project needs (matching android/app/build.gradle.kts'
-      # compileSdk/targetSdk = 35) are installed explicitly and up front instead.
+      # compileSdk = 37, targetSdk = 35) are installed explicitly and up front instead.
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
 
-      - name: Install required Android SDK packages (compileSdk 35)
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Install required Android SDK packages (compileSdk 37)
+        run: sdkmanager --install "platforms;android-37" "build-tools;37.0.0"
 
       # Fixes the executable bit lost when gradlew was first committed from Windows,
       # and the eol=lf .gitattributes rule keeps the shebang line itself intact --

@@ -15,7 +15,9 @@ plugins {
 
 android {
     namespace = "io.github.dopodomani.wpsharetodraft"
-    compileSdk = 35
+    // Bumped from 35: androidx.core 1.19.0/lifecycle 2.11.0/hilt-navigation-compose 1.4.0
+    // (all pulled in by this dependency round) require compiling against API 37 or later.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.dopodomani.wpsharetodraft"
