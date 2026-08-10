@@ -1,0 +1,18 @@
+# Config for the Documentation CI link-check job (.github/workflows/docs-ci.yml).
+# Most links flagged here are intentional placeholders/examples in docs (a fake API
+# response, a smoke-test walkthrough with example.com/nikkei.com-style URLs, LocalWP's
+# .local domain) -- not real links meant to resolve, so they're excluded rather than
+# left to fail the check.
+exclude = [
+  "^https://your-site\\.example",
+  "^https://.*\\.invalid",
+  "^https://.*\\.local(/|$)",
+  "^https://material-capture-test\\.local",
+  "^https?://localhost",
+  "^https://www\\.nikkei\\.com/article/",
+  "^https://<your-site>",
+]
+
+# Placeholder/example domains that resolve fine but aren't meant to be checked as
+# real destinations for this project's docs.
+exclude_all_private = true

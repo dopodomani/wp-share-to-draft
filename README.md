@@ -30,7 +30,7 @@ An Android app that registers as a **Share Target**. When you share a page from 
 
 From there, your existing GitHub Actions pipeline (unchanged, out of scope for this project) picks it up: draft → material note generation → Codex → finished article.
 
-```
+```text
 Android Chrome share  →  [this project]  →  WordPress draft [INBOX]  →  GitHub Actions  →  material note  →  Codex  →  article
                          └──────────────┘
                           scope ends here
@@ -63,7 +63,7 @@ Claude Code / Codex roles: [docs/ai-development.md](docs/ai-development.md)
 
 ## Repository layout
 
-```
+```text
 wp-share-to-draft/
 ├── README.md
 ├── LICENSE                    # MIT

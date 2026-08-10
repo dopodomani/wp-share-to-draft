@@ -1,0 +1,84 @@
+name: Documentation CI
+
+# Catches the class of doc bugs code review tends to miss: broken Markdown formatting,
+# dead links (internal cross-references between docs, or external links gone stale),
+# and Mermaid diagrams that no longer parse after an edit. ROADMAP.md Phase 5 item.
+#
+# Deliberately excluded: prose/content accuracy (e.g. a doc claiming a feature is
+# "not yet implemented" when it shipped) -- that's a human/AI review judgment call,
+# not something a linter can catch. See CLAUDE.md's docs-before-code rule for how
+# that's meant to be caught instead.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - ".markdownlint.jsonc"
+      - ".markdownlint-cli2.jsonc"
+      - ".github/lychee.toml"
+      - ".github/workflows/docs-ci.yml"
+      - "scripts/check-mermaid-diagrams.mjs"
+  pull_request:
+    paths:
+      - "**/*.md"
+      - ".markdownlint.jsonc"
+      - ".markdownlint-cli2.jsonc"
+      - ".github/lychee.toml"
+      - ".github/workflows/docs-ci.yml"
+      - "scripts/check-mermaid-diagrams.mjs"
+
+concurrency:
+  group: docs-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: markdownlint-cli2
+        uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+
+  link-check:
+    name: Link check (lychee)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Only checks committed Markdown, not vendor'd/generated files -- see
+      # .github/lychee.toml for the placeholder-domain exclude list (example.com-style
+      # URLs used throughout the smoke-test guides aren't meant to resolve).
+      - name: lychee
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --config .github/lychee.toml
+            --no-progress
+            '**/*.md'
+          fail: true
+
+  mermaid-check:
+    name: Mermaid diagram syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      # Renders every ```mermaid block found in the repo's Markdown via
+      # @mermaid-js/mermaid-cli, so a diagram that no longer parses fails CI instead
+      # of silently rendering broken on GitHub. See scripts/check-mermaid-diagrams.mjs.
+      - name: Validate Mermaid diagrams
+        run: node scripts/check-mermaid-diagrams.mjs

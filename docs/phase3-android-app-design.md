@@ -21,7 +21,7 @@
 
 Three Gradle modules:
 
-```
+```text
 android/
 ├── settings.gradle.kts
 ├── build.gradle.kts               # root: plugin versions only
@@ -145,7 +145,7 @@ If no URL can be found in the shared content at all, `IntentParser` still return
 
 **Context:** Chrome's "Share" action on a text *selection* (as opposed to sharing the whole page) sends the same `ACTION_SEND` shape, but empirically does **not** reliably include the source page's URL or title — confirmed on-device: selecting text on a Nikkei article and sharing yields empty `EXTRA_SUBJECT` and no URL-shaped substring in `EXTRA_TEXT` at all, while the same action on a MarkLines article sometimes does include one. This is site/Chrome-version-dependent, not something the app can force or detect reliably — no code change can guarantee a URL/title will be present, so this remains best-effort exactly as it already was; the Confirm screen's `url`/`title` fields simply open empty and editable when Chrome doesn't provide them.
 
-**The actual gap this revision fixes:** the extracted remainder text (the selected text, or the shared text minus any detected URL) was only ever assigned to `CaptureItem.sharedText` — a field with **no representation in `ConfirmDraftScreen`** (see [§1](#1-screen-transition-diagram)/[§6](#6-confirmdraftscreen-composable) — only `title`, `url`, `memo` are rendered). Sharing a text selection therefore looked like nothing had been captured at all, even when `sharedText` was populated correctly and sent to WordPress.
+**The actual gap this revision fixes:** the extracted remainder text (the selected text, or the shared text minus any detected URL) was only ever assigned to `CaptureItem.sharedText` — a field with **no representation in `ConfirmDraftScreen`** (see [§1](#1-screen-transition-diagram) — only `title`, `url`, `memo` are rendered). Sharing a text selection therefore looked like nothing had been captured at all, even when `sharedText` was populated correctly and sent to WordPress.
 
 **Decision:** `IntentParser` now also assigns the same remainder value to `CaptureItem.memo`, so the user sees and can edit it directly in the Confirm screen's existing メモ field before saving — no new UI element needed. `sharedText` keeps receiving the identical value unchanged, preserving its existing role (the raw captured text sent to WordPress as `shared_text`, rendered into the post body per [docs/phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)); this revision only adds a second destination for the same value, it doesn't remove or repurpose the first.
 

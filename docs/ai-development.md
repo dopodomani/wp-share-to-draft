@@ -45,7 +45,7 @@ Works on narrower, well-scoped tasks: review, verification, and specific fixes r
 
 Before either tool starts work, the task's scope is stated explicitly so the two don't collide. Example split for a given session:
 
-```
+```text
 Claude Code:
   - Phase 3 Android implementation as a whole
   - Layer structure
