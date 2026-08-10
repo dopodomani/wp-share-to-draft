@@ -1,0 +1,24 @@
+name: Feature request
+description: Propose a new capability or change in behavior.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's missing or awkward today? Link to the relevant ROADMAP.md phase/item if this extends something already planned.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you'd like to see. No need for full design detail — see CLAUDE.md, non-trivial design changes go through a docs/ design doc before implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

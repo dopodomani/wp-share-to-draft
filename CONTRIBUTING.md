@@ -1,6 +1,6 @@
 # Contributing
 
-This project is currently in **Phase 1 (design)** — the API contract and plugin/app structure are still being finalized, so this document is intentionally minimal. It will be expanded at Phase 5 (OSS launch) with:
+This project is currently mid-implementation (WordPress plugin and Android app both built and verified against production, per [ROADMAP.md](ROADMAP.md)), ahead of the **Phase 5 (OSS launch)** milestone — so this document is intentionally still minimal. It will be expanded at Phase 5 with:
 
 - Coding style (Kotlin: ktlint; PHP: WordPress Coding Standards)
 - How to run the plugin's PHPUnit suite and the Android unit tests locally

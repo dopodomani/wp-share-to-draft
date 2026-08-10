@@ -41,7 +41,7 @@ The client (Android app, and later PWA/webhook) needs to authenticate to a singl
 - The REST route requires `edit_posts` capability on the authenticated user (checked in the `permission_callback`, per WordPress REST API convention — never inside the handler as an afterthought).
 - No endpoint accepts an arbitrary WordPress user ID or "act as" parameter — the post author is always the authenticated user.
 
-## XML-RPC fallback transport (Phase 2c/2d, designed not yet built)
+## XML-RPC fallback transport (Phase 2c/2d, implemented)
 
 An opt-in alternative to REST for hosts that strip the `Authorization` header before it reaches PHP (see [docs/tech-decisions.md #11](tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport)). This section documents its security posture explicitly, since XML-RPC as a *general WordPress feature* has a materially different risk profile than REST — see [ADR #2](tech-decisions.md#2-rest-api-not-xml-rpc):
 
