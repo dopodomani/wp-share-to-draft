@@ -44,7 +44,7 @@ Record every field below in the results doc before testing anything else.
 | Enter the WordPress site URL (`https://...`, from your LocalWP site) | Field accepts input |
 | Enter the username | Field accepts input |
 | Enter the Application Password | Field accepts input, **displayed masked** (`PasswordVisualTransformation` — confirm dots/bullets shown, not plaintext) |
-| Invalid URL validation | Enter a site URL **without** `https://` (e.g. `http://...` or a bare domain) and tap Save → expect the inline validation message ("サイトURLはhttps://で始まる必要があります"), **no save actually occurs** |
+| Invalid URL validation | Enter a site URL **without** `https://` (e.g. `http://...` or a bare domain) and tap Save → expect the inline validation message ("サイトURLは`https://`で始まる必要があります"), **no save actually occurs** |
 | Save (with a valid `https://` URL) | Navigates onward (to Confirm if a share was pending, otherwise nothing further to navigate to — see [docs/phase3-android-app-design.md §1](phase3-android-app-design.md#1-screen-transition-diagram)) |
 | Restart the app, then share a page (see §4) | Routes **directly to Confirm**, skipping Settings — confirms `SettingsRepository.hasSettings()` correctly reports the saved settings persisted across an app restart |
 | Reopen Settings from the app icon after restart | **Known current limitation, confirm it matches expectations rather than assuming it's a bug:** the Settings form does not pre-fill previously saved values — `SettingsViewModel` always starts from a blank `Editing` state (see [docs/phase3-android-app-design.md §3](phase3-android-app-design.md#3-viewmodel-construction)). Record whether this is acceptable as-is or worth filing as a follow-up. |
