@@ -104,7 +104,7 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 - Emulator/device used: Pixel 9a API 37.1 (emulator-5554)
 - git commit SHA: `63a9065` (main, per docs/phase3-android-smoke-test-guide.md's guidance to confirm CI green for the tested commit)
 - Matching Android CI run: green (PR #1 merge commit)
-- Production WordPress target: dopodomani.biz
+- Production WordPress target: the project's production host
 
 **2. Build confirmation**
 | Check | Result | Notes |
@@ -116,7 +116,7 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 **3. Settings**
 | Check | Result | Notes |
 |---|---|---|
-| Site URL input | PASS | `https://dopodomani.biz` accepted; trailing slash correctly normalized by `trimEnd('/')` |
+| Site URL input | PASS | Production host URL accepted; trailing slash correctly normalized by `trimEnd('/')` |
 | Application Password masked on screen | PASS | Confirmed dots shown, not plaintext |
 | Save | **FAIL** | Repro: launch app from icon (no pending share) → fill Settings → tap 保存. Expected: some confirmation UI or navigation. Actual: screen goes **blank white and stays blank indefinitely** — `SettingsUiState.Saved` has no rendered Composable branch (`LaunchedEffect(Unit) { onSaved() }` only, no UI), and `onSaved()` is a no-op when there's no pending shared item. Underlying save to `EncryptedSettingsRepository` appears to succeed regardless (confirmed indirectly: a later share-from-Chrome skipped Settings and went straight to Confirm) — this is a UI-only bug, not a data-persistence bug. **Follow-up: file as an Issue, fix in a small branch (Settings needs a visible "saved" state or navigates somewhere sensible when there's no pending item).**
 | Restored after app restart (routes to Confirm, not Settings) | PASS | Confirms settings did persist despite the blank-screen bug above |
@@ -148,7 +148,7 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 **Environment:**
 - Emulator/device used: Pixel 9a API 37.1 (emulator-5554)
 - git commit SHA: `feature/android-xmlrpc-publisher` branch (Phase 3d implementation), :core/:app builds green locally
-- Production WordPress target: dopodomani.biz
+- Production WordPress target: the project's production host
 - Settings: 接続方式 = XML-RPC (default)
 
 **3. Settings**
@@ -166,9 +166,9 @@ Result values for every row: **PASS** / **FAIL** / **BLOCKED** / **NOT TESTED**.
 | Check | Result | Notes |
 |---|---|---|
 | Draft created via XML-RPC | **BLOCKED**, then diagnosed, then **PASS** | First attempt: `material_capture.createDraft` wasn't registered at all -- `system.listMethods` didn't list it. Root cause: `Plugin::registerXmlRpcMethods()` was hooked to `add_action('xmlrpc_init', ...)`, an action WordPress core doesn't define. Fixed by calling it unconditionally at plugin load time instead. Second attempt: registered correctly (confirmed via `system.listMethods`), but every real call returned `faultCode 500` with WordPress's generic fatal-error message. Root cause: `DraftXmlRpcHandler::createDraft` had a `(array $args, wp_xmlrpc_server $server)` signature, but WordPress's real XML-RPC dispatcher calls registered methods with a single `$args` argument only, causing a fatal `ArgumentCountError` on every invocation. Fixed by dropping the second parameter and reaching the server via the `$wp_xmlrpc_server` global. Third attempt: reached our own `IXR_Error(403, ...)` for `insufficient_capability` even though the account (投稿者/Author role) is confirmed able to post via other existing XML-RPC scripts on this same host -- root cause turned out to be a stale/incorrect Application Password value used for testing, not a real code or permission bug (confirmed once the correct Application Password was used). Final attempt: **draft successfully created** -- Confirm screen showed "下書きを作成しました: [INBOX] Make your donation now - Wikimedia Foundation". |
-| `siteUrl` differs by transport on this host | Noted | dopodomani.biz's WordPress install lives in a `/tech` subdirectory; REST (`/wp-json/...`) only resolves at the domain root, while `xmlrpc.php` only resolves at `/tech/xmlrpc.php`. A single `siteUrl` setting can't serve both transports correctly on this particular host -- switching `connectionMethod` here also requires changing `siteUrl`. Recorded as a known host-specific limitation, not an app bug. |
+| `siteUrl` differs by transport on this host | Noted | The production host's WordPress install lives in a non-root subdirectory; REST (`/wp-json/...`) only resolves at the domain root, while `xmlrpc.php` only resolves under that subdirectory. A single `siteUrl` setting can't serve both transports correctly on this particular host -- switching `connectionMethod` here also requires changing `siteUrl`. Recorded as a known host-specific limitation, not an app bug. |
 
-**Overall:** ☑ All checks passed (after fixes) — real bugs found and fixed this session: `NetworkOnMainThreadException` in `XmlRpcPublisher`'s transport (Android), `xmlrpc_init` registration hook not existing in WordPress core (plugin), `ArgumentCountError` from a wrong callback signature (plugin), and a Japanese IME composition bug in the Confirm screen's fields (Android, two iterations — see the fix commits) fixed and confirmed working via copy-paste/Android IME testing. End-to-end XML-RPC draft creation against dopodomani.biz is now verified working.
+**Overall:** ☑ All checks passed (after fixes) — real bugs found and fixed this session: `NetworkOnMainThreadException` in `XmlRpcPublisher`'s transport (Android), `xmlrpc_init` registration hook not existing in WordPress core (plugin), `ArgumentCountError` from a wrong callback signature (plugin), and a Japanese IME composition bug in the Confirm screen's fields (Android, two iterations — see the fix commits) fixed and confirmed working via copy-paste/Android IME testing. End-to-end XML-RPC draft creation against the project's production host is now verified working.
 
 **Follow-ups filed (if any):**
 - Fixed this session (Android): `MaterialCaptureXmlRpcApi.createDraft` now runs its OkHttp call inside `withContext(Dispatchers.IO)`; Confirm screen's title/URL/memo fields now use a per-field local `TextFieldValue` keyed on `CaptureItem.sharedAt`, fixing both a "fields stay blank after a real share arrives" regression and a Japanese IME composition bug.

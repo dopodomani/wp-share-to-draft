@@ -152,7 +152,7 @@ MIT — see [LICENSE](LICENSE).
 
 Android ChromeなどでWebページを「共有」した2タップで、WordPressに `[INBOX]` 付きの下書きを自動作成するプロジェクトです。
 
-**現在のフェーズ:** WordPress側・Android側とも実装済み（REST・XML-RPCフォールバック双方、本番環境dopodomani.biz で動作確認済み）。Phase 4（結合テスト）は保留中。Phase 2b/3bの手動スモークテストチェックリストは未実施、Phase 5（OSS公開)は未着手。
+**現在のフェーズ:** WordPress側・Android側とも実装済み（REST・XML-RPCフォールバック双方、本番環境で動作確認済み）。Phase 4（結合テスト）は保留中。Phase 2b/3bの手動スモークテストチェックリストは未実施、Phase 5（OSS公開)は未着手。
 
 **やること:** Android共有 → 確認画面 → WordPress下書き作成、まで。
 **やらないこと:** それ以降（GitHub Actions以降の素材ノート生成・Codex・記事作成）は既存の運用のまま変更しません。
