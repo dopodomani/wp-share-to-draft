@@ -107,7 +107,7 @@ Don't leave local, unpushed changes and switch machines — if a task must be pa
 
 GitHub Actions is the environment that compensates for the secondary PC lacking an Android SDK — it's the one place every check always runs, regardless of which PC produced the change.
 
-**Android CI is built** ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml), added to supplement Phase 3b's build verification). On every push to `main` and every pull request touching `android/**`, a single Ubuntu job:
+**Android CI is built** ([.github/workflows/android-ci.yml](../.github/workflows/android-ci.yml), added to supplement Phase 3b's build verification). It triggers on every push to `main` and every pull request, unconditionally — a `changes` job first detects whether `android/**` was touched; the real build-and-test job below runs only when it was, and is skipped otherwise. A final `android-ci` gate job reports the required status check regardless (`main`'s branch ruleset requires a check named `Android CI`): it succeeds when android changed and build-and-test passed, or when android didn't change at all (a docs-only PR shouldn't be blocked on a check that has nothing to verify). When android **does** change, the build-and-test job:
 
 1. Checks out the repository
 2. Sets up JDK 17 (Temurin)
@@ -124,7 +124,7 @@ No secrets are used or required: the build needs no real WordPress URL, username
 
 **Explicitly out of scope for this workflow:** emulator/instrumented tests, real-device Share Target behavior, and real-WordPress smoke testing — those stay Phase 4 territory (see [docs/phase2-smoke-test-guide.md](phase2-smoke-test-guide.md) and [ROADMAP.md](../ROADMAP.md)'s Phase 4 gate), not something this CI attempts to replace.
 
-**WordPress CI is built** ([.github/workflows/wordpress-ci.yml](../.github/workflows/wordpress-ci.yml)). On every push to `main` and every pull request touching `wordpress-plugin/**`, it:
+**WordPress CI is built** ([.github/workflows/wordpress-ci.yml](../.github/workflows/wordpress-ci.yml)), using the same changed-paths gating pattern as Android CI above (`changes` job detects `wordpress-plugin/**`, the real jobs are skipped when it's untouched, and a final `wordpress-ci` gate job reports the required status check either way). When wordpress-plugin changes, it:
 
 1. Installs the locked Composer dependencies on PHP 8.1, 8.2, and 8.3
 2. Runs the Brain Monkey/Mockery PHPUnit suite on every supported PHP version in that matrix

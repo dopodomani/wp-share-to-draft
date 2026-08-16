@@ -1,15 +1,17 @@
 name: WordPress CI
 
+# Triggers on every push to main and every PR, unconditionally -- no path filter here.
+# The "WordPress CI" job at the bottom of this file is the required status check on
+# `main`'s branch ruleset, and GitHub only ever satisfies a required check from a check
+# run that actually gets created; a path-filtered trigger meant docs-only PRs got no
+# check run at all and sat permanently blocked. Instead, the `changes` job below detects
+# whether wordpress-plugin/** was touched, the real jobs are skipped (not silently
+# absent) when it wasn't, and the "WordPress CI" gate job reports success either way --
+# GitHub treats a skipped job as satisfying a required check.
 on:
   push:
     branches: [main]
-    paths:
-      - "wordpress-plugin/**"
-      - ".github/workflows/wordpress-ci.yml"
   pull_request:
-    paths:
-      - "wordpress-plugin/**"
-      - ".github/workflows/wordpress-ci.yml"
 
 concurrency:
   group: wordpress-ci-${{ github.ref }}
@@ -19,8 +21,28 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      wordpress: ${{ steps.filter.outputs.wordpress }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Filter
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            wordpress:
+              - "wordpress-plugin/**"
+              - ".github/workflows/wordpress-ci.yml"
+
   unit-tests:
     name: PHPUnit (PHP ${{ matrix.php }})
+    needs: changes
+    if: needs.changes.outputs.wordpress == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -58,6 +80,8 @@ jobs:
 
   coding-standards:
     name: Composer validation and PHPCS
+    needs: changes
+    if: needs.changes.outputs.wordpress == 'true'
     runs-on: ubuntu-latest
 
     defaults:
@@ -91,3 +115,27 @@ jobs:
 
       - name: Run PHP CodeSniffer
         run: composer lint
+
+  # The actual required status check on `main` (see docs/development.md#cis-role).
+  # Named to match the ruleset entry regardless of which jobs above ran, so a docs-only
+  # PR -- where unit-tests/coding-standards are skipped -- still reports success here,
+  # while a PR that touches wordpress-plugin/** only passes if both genuinely succeeded.
+  wordpress-ci:
+    name: WordPress CI
+    needs: [changes, unit-tests, coding-standards]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        run: |
+          if [ "${{ needs.changes.outputs.wordpress }}" = "true" ]; then
+            if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+              echo "unit-tests did not succeed (${{ needs.unit-tests.result }})"
+              exit 1
+            fi
+            if [ "${{ needs.coding-standards.result }}" != "success" ]; then
+              echo "coding-standards did not succeed (${{ needs.coding-standards.result }})"
+              exit 1
+            fi
+          fi
+          echo "OK"

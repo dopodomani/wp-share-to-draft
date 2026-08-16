@@ -9,22 +9,18 @@ name: Android CI
 # behavior, and real WordPress smoke testing -- those are Phase 4 (see
 # docs/phase2-smoke-test-guide.md and ROADMAP.md's Phase 4 gate), not this workflow.
 
-# Path filters are scoped to everything that can affect the Android build: all of
-# android/** (GitHub Actions' glob matches dotfiles too, so this also covers
-# android/.editorconfig and android/gradlew, not just *.kt/*.kts) plus this workflow
-# file itself. Nothing Android-relevant lives outside android/ in this repo, so this is
-# the complete set, not a partial one -- revisit if that ever changes (e.g. a root-level
-# version catalog).
+# Triggers on every push to main and every PR, unconditionally -- no path filter here.
+# The "Android CI" job at the bottom of this file is the required status check on
+# `main`'s branch ruleset, and GitHub only ever satisfies a required check from a check
+# run that actually gets created; a path-filtered trigger meant docs-only PRs got no
+# check run at all and sat permanently blocked. Instead, the `changes` job below detects
+# whether android/** was touched, the real build-and-test job is skipped (not silently
+# absent) when it wasn't, and the "Android CI" gate job reports success either way --
+# GitHub treats a skipped job as satisfying a required check.
 on:
   push:
     branches: [main]
-    paths:
-      - "android/**"
-      - ".github/workflows/android-ci.yml"
   pull_request:
-    paths:
-      - "android/**"
-      - ".github/workflows/android-ci.yml"
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -34,8 +30,28 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Filter
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            android:
+              - "android/**"
+              - ".github/workflows/android-ci.yml"
+
   build-and-test:
     name: Build and test (Android SDK, Ubuntu)
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
       # 1. Checkout
@@ -131,3 +147,21 @@ jobs:
             android/app/build/reports/tests
             android/app/build/reports/lint-results-debug.html
           retention-days: 14
+
+  # The actual required status check on `main` (see docs/development.md#cis-role).
+  # Named to match the ruleset entry regardless of which jobs above ran, so a docs-only
+  # PR -- where build-and-test is skipped -- still reports success here, while a PR that
+  # touches android/** only passes if build-and-test genuinely succeeded.
+  android-ci:
+    name: Android CI
+    needs: [changes, build-and-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check result
+        run: |
+          if [ "${{ needs.changes.outputs.android }}" = "true" ] && [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "build-and-test did not succeed (${{ needs.build-and-test.result }})"
+            exit 1
+          fi
+          echo "OK"
