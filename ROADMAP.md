@@ -46,7 +46,7 @@ This mirrors the project's [CLAUDE.md](CLAUDE.md) rule: "docs before code," and 
 
 ### Phase 2c — XML-RPC fallback (design) ✅ complete
 
-Added after main-PC smoke testing found that production hosting (dopodomani.biz) does not forward the `Authorization` header to PHP even with the documented `.htaccess` rewrite rule — meaning Application-Password-over-REST cannot authenticate there at all. Confirmed by the project's own pre-existing `publish_wordpress_article.py`, which already works around identical hosting behavior using XML-RPC. See [docs/tech-decisions.md #11](docs/tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport) for the full rationale and why this amends, rather than reverses, ADR #2.
+Added after main-PC smoke testing found that the project's production WordPress host does not forward the `Authorization` header to PHP even with the documented `.htaccess` rewrite rule — meaning Application-Password-over-REST cannot authenticate there at all. Confirmed by the project's own pre-existing `publish_wordpress_article.py`, which already works around identical hosting behavior using XML-RPC. See [docs/tech-decisions.md #11](docs/tech-decisions.md#11-xml-rpc-as-an-opt-in-fallback-transport) for the full rationale and why this amends, rather than reverses, ADR #2.
 
 **Definition of Done:**
 - [x] [docs/phase2c-xmlrpc-design.md](docs/phase2c-xmlrpc-design.md) written: XML-RPC method name/params/response/fault-code contract, class design, auth division of responsibility, test plan
@@ -61,7 +61,7 @@ Added after main-PC smoke testing found that production hosting (dopodomani.biz)
 - [x] `post_status`/`post_author` still always server-controlled, identical guarantee to the REST path (same `CreateDraftUseCase`/`get_current_user_id()`, no client-supplied override)
 - [x] Fault codes match the table in `docs/api-spec.md`'s XML-RPC section
 - [x] PHPUnit tests (Brain\Monkey + Mockery, same conventions as the REST controller's tests) pass with no live WordPress instance — `composer test` (46 tests) and `composer lint` (PHPCS) both green
-- [x] Manual verification against the production host that XML-RPC succeeds where REST does not — confirmed 2026-07-31 against dopodomani.biz (see docs/phase3-android-smoke-test-results.md), after fixing two real bugs found in the process: the `xmlrpc_init` registration hook (doesn't exist in WordPress core) and a wrong `createDraft` callback signature (`ArgumentCountError`)
+- [x] Manual verification against the production host that XML-RPC succeeds where REST does not — confirmed 2026-07-31 (see docs/phase3-android-smoke-test-results.md), after fixing two real bugs found in the process: the `xmlrpc_init` registration hook (doesn't exist in WordPress core) and a wrong `createDraft` callback signature (`ArgumentCountError`)
 
 ## Phase 3 — Android Share Target app
 
@@ -91,7 +91,7 @@ Added after main-PC smoke testing found that production hosting (dopodomani.biz)
 
 ### Phase 3c — XML-RPC fallback (design) ✅ complete
 
-Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per site in Settings, since some hosting (confirmed: dopodomani.biz) can't authenticate REST's Basic Auth at all.
+Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per site in Settings, since some hosting (confirmed against the project's own production host) can't authenticate REST's Basic Auth at all.
 
 **Definition of Done:**
 - [x] [docs/phase3c-android-xmlrpc-design.md](docs/phase3c-android-xmlrpc-design.md) written: `ConnectionMethod` setting, `WordPressPublisher`/`WordPressPublisherFactory` selection design, hand-rolled XML-RPC request/response codec (no new library dependency), Settings screen changes, test plan
@@ -107,11 +107,11 @@ Android-side counterpart to Phase 2c/2d: lets the user pick REST or XML-RPC per 
 - [x] MockWebServer-based tests for the XML-RPC path, mirroring the existing REST test's coverage
 - [x] No automatic REST↔XML-RPC fallback or auto-detection anywhere
 - [x] ktlint clean; `:core:test`, `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug` all pass locally — CI still to confirm on the PR
-- [x] Manual verification against the production host that switching to XML-RPC succeeds where REST does not — confirmed 2026-07-31 against dopodomani.biz; a `NetworkOnMainThreadException` and a Japanese IME composition bug in the Confirm screen were found and fixed in the process (see docs/phase3-android-smoke-test-results.md)
+- [x] Manual verification against the production host that switching to XML-RPC succeeds where REST does not — confirmed 2026-07-31; a `NetworkOnMainThreadException` and a Japanese IME composition bug in the Confirm screen were found and fixed in the process (see docs/phase3-android-smoke-test-results.md)
 
 ## Phase 4 — Integration testing
 
-**Status: on hold (2026-08-03).** Deliberately not pursued as work in this repository right now — the happy path (real Android device → real Chrome share → real WordPress) has already been exercised repeatedly and successfully during Phase 3d/2d verification against dopodomani.biz, so the most valuable part of Phase 4b is informally covered already. Formal Phase 4a/4b work (design doc, systematic error-path testing, explicit CI-pipeline-boundary verification) can resume whenever it's next prioritized; nothing below is stale, just paused. Local-WordPress dev tooling (`wordpress-plugin/scripts/setup-local-sqlite-env.sh`) was still built in the meantime, since it's independently useful and not itself Phase 4 scope.
+**Status: on hold (2026-08-03).** Deliberately not pursued as work in this repository right now — the happy path (real Android device → real Chrome share → real WordPress) has already been exercised repeatedly and successfully during Phase 3d/2d verification against the project's production host, so the most valuable part of Phase 4b is informally covered already. Formal Phase 4a/4b work (design doc, systematic error-path testing, explicit CI-pipeline-boundary verification) can resume whenever it's next prioritized; nothing below is stale, just paused. Local-WordPress dev tooling (`wordpress-plugin/scripts/setup-local-sqlite-env.sh`) was still built in the meantime, since it's independently useful and not itself Phase 4 scope.
 
 ### Phase 4a — Integration test design
 
