@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+ "Material You" icon theming, API 33+). The system
+     re-tints this silhouette itself, so the fill color here is only a placeholder. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24.04,79.7 L84.01,53.99 L24.04,28.27 L24.01,48.27 L66.87,53.99 L24.01,59.7 Z" />
+</vector>
