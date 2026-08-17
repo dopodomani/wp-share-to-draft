@@ -101,12 +101,12 @@ jobs:
       # redundant, but even if a future setup-gradle version did overlap, this step
       # is cheap enough to keep on purpose for the explicit, visible pass/fail signal.
       - name: Validate Gradle wrapper
-        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # 5. Gradle cache (dependencies + build cache), handled by the official action --
       # also transparently uses the validated wrapper for every ./gradlew call below.
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # 6. :core unit tests -- plain JVM module, no Android SDK actually required for
       # this step, but it runs here too so the whole matrix of checks lives in one place.
