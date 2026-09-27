@@ -51,4 +51,42 @@ final class PostBodyTemplateTest extends TestCase
         self::assertStringContainsString('メモ: my memo', $body);
         self::assertStringContainsString('shared text', $body);
     }
+
+    public function test_repeated_title_line_is_removed_from_shared_text(): void
+    {
+        $payload = DraftPayload::create('Article title', '', "Article title\n\nBody", null, 'chrome_share', null);
+
+        $body = (new PostBodyTemplate())->render($payload, new DateTimeImmutable('2026-07-27T09:15:03+09:00'));
+
+        self::assertStringNotContainsString("\n\nArticle title\n", $body);
+        self::assertStringContainsString("\n\nBody", $body);
+    }
+
+    public function test_repeated_title_comparison_ignores_nbsp_and_leading_blank_lines(): void
+    {
+        $payload = DraftPayload::create('Article title', '', "\nArticle\xC2\xA0\xC2\xA0title\r\nBody", null, 'chrome_share', null);
+
+        $body = (new PostBodyTemplate())->render($payload, new DateTimeImmutable('2026-07-27T09:15:03+09:00'));
+
+        self::assertStringNotContainsString('Article', $body);
+        self::assertStringContainsString('Body', $body);
+    }
+
+    public function test_title_only_shared_text_does_not_add_an_empty_body_section(): void
+    {
+        $payload = DraftPayload::create('Article title', '', 'Article title', null, 'chrome_share', null);
+
+        $body = (new PostBodyTemplate())->render($payload, new DateTimeImmutable('2026-07-27T09:15:03+09:00'));
+
+        self::assertStringNotContainsString("\n\nArticle title", $body);
+    }
+
+    public function test_non_matching_shared_text_is_preserved(): void
+    {
+        $payload = DraftPayload::create('Edited title', '', "Original title\nBody", null, 'chrome_share', null);
+
+        $body = (new PostBodyTemplate())->render($payload, new DateTimeImmutable('2026-07-27T09:15:03+09:00'));
+
+        self::assertStringContainsString('Original title', $body);
+    }
 }

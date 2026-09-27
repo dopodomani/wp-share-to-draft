@@ -8,6 +8,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -92,9 +93,7 @@ class IntentParserTest {
     }
 
     @Test
-    fun `a リンク template line with the url gap collapsed to other template words is also skipped`() {
-        // Confirmed on-device: a second Chrome template variant, "リンク: を含む" ("...including
-        // the link:"), left dangling the same way when Chrome had no URL to fill in.
+    fun `a known link template suffix is skipped after URL removal`() {
         val intent = sendIntent(subject = null, text = "リンク: を含む\n来期は車載向けが牽引役になるとの見立てだ。")
 
         val item = parser.parse(intent)
@@ -163,6 +162,39 @@ class IntentParserTest {
 
         assertEquals("chrome_share", item.source)
         assertEquals(fixedClock.instant(), item.sharedAt)
+    }
+
+    @Test
+    fun `first line mode overrides subject and removes the title from memo`() {
+        val intent = sendIntent(subject = "Browser subject", text = "Article title\nBody")
+
+        val item = parser.parse(intent, TitleMode.FIRST_LINE)
+
+        assertEquals("Article title", item.title)
+        assertEquals("Body", item.memo)
+        assertEquals("Article title\nBody", item.sharedText)
+    }
+
+    @Test
+    fun `first line mode falls back to subject when content has no meaningful line`() {
+        val intent = sendIntent(subject = "Browser subject", text = "https://example.com\nリンク：\u200B")
+
+        val item = parser.parse(intent, TitleMode.FIRST_LINE)
+
+        assertEquals("Browser subject", item.title)
+        assertNull(item.memo)
+    }
+
+    @Test
+    fun `auto mode ignores the browser link template subject`() {
+        val intent = sendIntent(
+            subject = "リンク: https://example.com/ を含む",
+            text = "リンク: https://example.com/ を含む\n実際の記事タイトル\n本文",
+        )
+
+        val item = parser.parse(intent)
+
+        assertEquals("実際の記事タイトル", item.title)
     }
 
     private fun sendIntent(

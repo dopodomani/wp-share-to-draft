@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,15 +42,28 @@ class ShareReceiverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val capturedItem: CaptureItem? =
-            if (intent?.action == Intent.ACTION_SEND) intentParser.parse(intent) else null
-
         setContent {
             val navController = rememberNavController()
             var startDestination by remember { mutableStateOf<String?>(null) }
+            var capturedItem by remember { mutableStateOf<CaptureItem?>(null) }
+            var settingsRefresh by remember { mutableIntStateOf(0) }
 
-            LaunchedEffect(Unit) {
-                startDestination = if (settingsRepository.hasSettings()) Routes.CONFIRM else Routes.SETTINGS
+            LaunchedEffect(settingsRefresh) {
+                val settings = settingsRepository.get()
+                if (settings != null) {
+                    if (intent?.action == Intent.ACTION_SEND) {
+                        capturedItem = intentParser.parse(intent, settings.titleMode)
+                    }
+                    if (startDestination == null) {
+                        startDestination = if (intent?.action == Intent.ACTION_SEND) Routes.CONFIRM else Routes.SETTINGS
+                    } else if (settingsRefresh > 0 && intent?.action == Intent.ACTION_SEND) {
+                        navController.navigate(Routes.CONFIRM) {
+                            popUpTo(Routes.SETTINGS) { inclusive = true }
+                        }
+                    }
+                } else if (startDestination == null) {
+                    startDestination = Routes.SETTINGS
+                }
             }
 
             val destination = startDestination ?: return@setContent
@@ -57,15 +71,7 @@ class ShareReceiverActivity : ComponentActivity() {
             NavHost(navController = navController, startDestination = destination) {
                 composable(Routes.SETTINGS) {
                     SettingsScreen(
-                        onSaved = {
-                            if (capturedItem != null) {
-                                navController.navigate(Routes.CONFIRM) {
-                                    popUpTo(Routes.SETTINGS) { inclusive = true }
-                                }
-                            }
-                            // Launched from the icon with nothing pending: Settings IS the
-                            // destination, so there's nowhere else to navigate to.
-                        },
+                        onSaved = { settingsRefresh++ },
                     )
                 }
                 composable(Routes.CONFIRM) {
@@ -76,8 +82,9 @@ class ShareReceiverActivity : ComponentActivity() {
                             navController.navigate(Routes.SETTINGS) { popUpTo(Routes.CONFIRM) { inclusive = true } }
                         }
                     } else {
+                        val item = requireNotNull(capturedItem)
                         val viewModel: ConfirmDraftViewModel = hiltViewModel()
-                        LaunchedEffect(capturedItem) { viewModel.initialize(capturedItem) }
+                        LaunchedEffect(item) { viewModel.initialize(item) }
                         ConfirmDraftScreen(
                             onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                             onDone = { finish() },

@@ -3,6 +3,7 @@ package io.github.dopodomani.wpsharetodraft.presentation.share
 import android.content.Intent
 import android.util.Patterns
 import io.github.dopodomani.wpsharetodraft.domain.CaptureItem
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 import java.time.Clock
 import javax.inject.Inject
 
@@ -18,9 +19,9 @@ private const val SOURCE = "chrome_share"
  * a candidate line is treated as noise if stripping every known template word from it leaves
  * nothing -- a line with any real content alongside these words is left untouched.
  */
-private val LINK_TEMPLATE_WORDS = Regex("(リンク|Link|を含む|[:：])+", RegexOption.IGNORE_CASE)
+private val LINK_TEMPLATE_LABEL = Regex("^\\s*(リンク|Link)\\s*[:：]\\s*(を含む|including)?\\s*$", RegexOption.IGNORE_CASE)
 
-private fun isLinkTemplateNoise(line: String): Boolean = line.replace(LINK_TEMPLATE_WORDS, "").isBlank()
+private fun isLinkTemplateNoise(line: String): Boolean = LINK_TEMPLATE_LABEL.matches(line.normalizeForLineCheck())
 
 /**
  * Translates a raw Android [Intent] (Chrome's `ACTION_SEND`) into a [CaptureItem]. The one
@@ -35,16 +36,29 @@ private fun isLinkTemplateNoise(line: String): Boolean = line.replace(LINK_TEMPL
 class IntentParser
     @Inject
     constructor(private val clock: Clock) {
-        fun parse(intent: Intent): CaptureItem {
+        fun parse(intent: Intent, titleMode: TitleMode = TitleMode.AUTO): CaptureItem {
             val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
             val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)
 
             val url = findUrl(sharedText)
             val remainder = sharedText?.let { removeUrl(it, url) }
 
-            val title = subject?.takeIf { it.isNotBlank() } ?: firstLine(remainder) ?: ""
+            val subjectTitle = subject
+                ?.let { removeUrl(it, url) }
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() && !isLinkTemplateNoise(it) }
+            val firstLineTitle = firstLine(remainder)
+            val title = when (titleMode) {
+                TitleMode.AUTO -> subjectTitle ?: firstLineTitle ?: ""
+                TitleMode.FIRST_LINE -> firstLineTitle ?: subjectTitle ?: ""
+            }
 
             val remainderText = remainder?.takeIf { it.isNotBlank() }
+            val memoText = when {
+                titleMode != TitleMode.FIRST_LINE -> remainderText
+                firstLineTitle != null -> removeFirstMeaningfulLine(remainder)
+                else -> null
+            }
 
             return CaptureItem(
                 title = title,
@@ -55,7 +69,7 @@ class IntentParser
                 // docs/phase3-android-app-design.md's IntentParser revision 2) doesn't look
                 // like nothing was captured. sharedText keeps the identical value for its own,
                 // separate role (raw captured text sent to WordPress as shared_text).
-                memo = remainderText,
+                memo = memoText,
                 source = SOURCE,
                 sharedAt = clock.instant(),
             )
@@ -76,5 +90,23 @@ class IntentParser
             text
                 ?.lineSequence()
                 ?.map { it.trim() }
-                ?.firstOrNull { it.isNotBlank() && !isLinkTemplateNoise(it) }
+                ?.firstOrNull { it.isEffectivelyNonBlank() && !isLinkTemplateNoise(it) }
+
+        private fun removeFirstMeaningfulLine(text: String?): String? {
+            if (text == null) return null
+            val lines = text.split(Regex("\\r\\n|\\r|\\n"))
+            var index = 0
+            while (index < lines.size && (!lines[index].isEffectivelyNonBlank() || isLinkTemplateNoise(lines[index]))) index++
+            if (index >= lines.size) return null
+            return lines.drop(index + 1).joinToString("\n").trim().takeIf { it.isNotEmpty() }
+        }
     }
+
+private fun String.isEffectivelyNonBlank(): Boolean =
+    normalizeForLineCheck().trim().isNotEmpty()
+
+private fun String.normalizeForLineCheck(): String =
+    replace(Regex("[\\u00A0\\u3000]"), " ")
+        .replace(Regex("""\p{Cf}"""), "")
+        .replace("\u200B", "")
+        .replace("\uFEFF", "")

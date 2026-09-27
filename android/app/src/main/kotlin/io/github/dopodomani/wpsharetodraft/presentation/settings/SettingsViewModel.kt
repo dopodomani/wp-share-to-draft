@@ -7,6 +7,7 @@ import io.github.dopodomani.wpsharetodraft.data.WordPressSiteUrl
 import io.github.dopodomani.wpsharetodraft.domain.AppSettings
 import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +31,7 @@ class SettingsViewModel
                             username = existing.username,
                             applicationPassword = existing.applicationPassword,
                             connectionMethod = existing.connectionMethod,
+                            titleMode = existing.titleMode,
                         )
                     } else {
                         SettingsUiState.Editing()
@@ -44,6 +46,8 @@ class SettingsViewModel
         fun onApplicationPasswordChanged(value: String) = updateEditing { it.copy(applicationPassword = value, validationError = null) }
 
         fun onConnectionMethodChanged(value: ConnectionMethod) = updateEditing { it.copy(connectionMethod = value) }
+
+        fun onTitleModeChanged(value: TitleMode) = updateEditing { it.copy(titleMode = value) }
 
         fun save() {
             val current = _uiState.value
@@ -66,6 +70,7 @@ class SettingsViewModel
                         username = current.username,
                         applicationPassword = current.applicationPassword,
                         connectionMethod = current.connectionMethod,
+                        titleMode = current.titleMode,
                     ),
                 )
                 _uiState.value = SettingsUiState.Saved

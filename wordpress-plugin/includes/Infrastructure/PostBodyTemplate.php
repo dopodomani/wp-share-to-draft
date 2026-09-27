@@ -35,9 +35,53 @@ final class PostBodyTemplate implements PostBodyRendererInterface
         $body = implode("\n", $lines);
 
         if ($payload->sharedText !== null && $payload->sharedText !== '') {
-            $body .= "\n\n" . $payload->sharedText;
+            $sharedText = $this->removeRepeatedTitleLine($payload->sharedText, $payload->title);
+            if ($sharedText !== '') {
+                $body .= "\n\n" . $sharedText;
+            }
         }
 
         return $body;
+    }
+
+    /**
+     * Android keeps sharedText as the URL-stripped source text. When its first meaningful
+     * line was also used as the title, omit that line from the rendered body only. The API
+     * field remains unchanged, and an edited/non-matching title never removes user content.
+     */
+    private function removeRepeatedTitleLine(string $sharedText, string $title): string
+    {
+        $lines = preg_split("/\r\n|\r|\n/", $sharedText) ?: [];
+        $index = 0;
+        while ($index < count($lines) && trim($this->comparisonText($lines[$index])) === '') {
+            $index++;
+        }
+
+        while ($index < count($lines) && $this->isLinkLabel($lines[$index])) {
+            $index++;
+            while ($index < count($lines) && trim($this->comparisonText($lines[$index])) === '') {
+                $index++;
+            }
+        }
+
+        if ($index >= count($lines) || $this->comparisonText($lines[$index]) !== $this->comparisonText($title)) {
+            return $sharedText;
+        }
+
+        $remaining = array_slice($lines, $index + 1);
+        return trim(implode("\n", $remaining));
+    }
+
+    private function isLinkLabel(string $line): bool
+    {
+        return preg_match('/^\s*(リンク|link)\s*[:：]\s*(を含む|including)?\s*$/iu', $this->comparisonText($line)) === 1;
+    }
+
+    private function comparisonText(string $value): string
+    {
+        $value = str_replace(["\xC2\xA0", "\xE3\x80\x80"], ' ', $value);
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?? trim($value);
+        $value = function_exists('mb_substr') ? mb_substr($value, 0, DraftPayload::TITLE_MAX_LENGTH) : substr($value, 0, DraftPayload::TITLE_MAX_LENGTH);
+        return $value;
     }
 }

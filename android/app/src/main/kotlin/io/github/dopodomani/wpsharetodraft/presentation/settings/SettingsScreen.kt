@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 
 /** See docs/phase3-android-app-design.md#1-screen-transition-diagram for when this screen is reached. */
 @Composable
@@ -87,6 +88,20 @@ fun SettingsScreen(
                     )
                 }
                 Text("REST APIが利用できないWordPress環境ではXML-RPCを使用します。")
+                Text("タイトルの取得方法")
+                Column(modifier = Modifier.selectableGroup()) {
+                    TitleModeOption(
+                        label = "自動（おすすめ）",
+                        selected = state.titleMode == TitleMode.AUTO,
+                        onClick = { viewModel.onTitleModeChanged(TitleMode.AUTO) },
+                    )
+                    TitleModeOption(
+                        label = "共有本文の1行目をタイトルにする",
+                        selected = state.titleMode == TitleMode.FIRST_LINE,
+                        onClick = { viewModel.onTitleModeChanged(TitleMode.FIRST_LINE) },
+                    )
+                }
+                Text("1行目をタイトルにした場合、残りの本文がメモになります。")
                 state.validationError?.let { Text(it) }
                 Button(onClick = viewModel::save, modifier = Modifier.fillMaxWidth()) {
                     Text("保存")
@@ -121,6 +136,21 @@ private fun ConnectionMethodOption(
             Modifier
                 .fillMaxWidth()
                 .selectable(selected = selected, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(label)
+    }
+}
+
+@Composable
+private fun TitleModeOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = onClick)

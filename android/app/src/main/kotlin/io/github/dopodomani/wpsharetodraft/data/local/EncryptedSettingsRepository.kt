@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.github.dopodomani.wpsharetodraft.domain.AppSettings
 import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 import io.github.dopodomani.wpsharetodraft.domain.SettingsRepository
 import javax.inject.Inject
 
@@ -11,6 +12,7 @@ private const val KEY_SITE_URL = "site_url"
 private const val KEY_USERNAME = "username"
 private const val KEY_APPLICATION_PASSWORD = "application_password"
 private const val KEY_CONNECTION_METHOD = "connection_method"
+private const val KEY_TITLE_MODE = "title_mode"
 
 /**
  * Reads/writes site_url, username, application_password keys in the injected (already
@@ -33,7 +35,17 @@ class EncryptedSettingsRepository
                 encryptedPrefs.getString(KEY_CONNECTION_METHOD, null)
                     ?.let { runCatching { ConnectionMethod.valueOf(it) }.getOrNull() }
                     ?: ConnectionMethod.XML_RPC
-            return AppSettings(siteUrl, username, applicationPassword, connectionMethod)
+            val titleMode =
+                encryptedPrefs.getString(KEY_TITLE_MODE, null)
+                    ?.let { value ->
+                        when (value) {
+                            "auto" -> TitleMode.AUTO
+                            "first_line" -> TitleMode.FIRST_LINE
+                            else -> null
+                        }
+                    }
+                    ?: TitleMode.AUTO
+            return AppSettings(siteUrl, username, applicationPassword, connectionMethod, titleMode)
         }
 
         override suspend fun save(settings: AppSettings) {
@@ -42,6 +54,7 @@ class EncryptedSettingsRepository
                 putString(KEY_USERNAME, settings.username)
                 putString(KEY_APPLICATION_PASSWORD, settings.applicationPassword)
                 putString(KEY_CONNECTION_METHOD, settings.connectionMethod.name)
+                putString(KEY_TITLE_MODE, if (settings.titleMode == TitleMode.FIRST_LINE) "first_line" else "auto")
             }
         }
     }

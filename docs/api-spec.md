@@ -111,7 +111,7 @@ Returns the created post's current status, for the app to confirm nothing was ov
 | `post_title` | `[INBOX] {title}` (idempotent prefixing — see the `title` field notes above) |
 | `post_status` | `draft` (always — never `publish`, regardless of any field the client sends; there is no code path capable of producing anything else, not just a validation rule — see [phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)) |
 | `post_author` | The authenticated user (`get_current_user_id()`), always explicit — never left to `wp_insert_post`'s default |
-| `post_content` | Structured body containing: original URL, **server-side** creation time, client-reported share time (if any), share source, memo (see template below) |
+| `post_content` | Structured body containing: original URL, **server-side** creation time, client-reported share time (if any), share source, memo (see template below). If the first meaningful `shared_text` line matches the submitted title after the same whitespace normalization, that line is omitted from rendered content to avoid showing the title twice; the API field itself is unchanged. |
 | `post_category` | The category configured at plugin **activation** time, re-verified to still exist at request time (`409 category_unavailable` if not) — **not** created or re-created during request handling |
 
 Body template (server-rendered, not client-supplied HTML, to prevent injection — see security doc). Note the split between server time and client-reported time:

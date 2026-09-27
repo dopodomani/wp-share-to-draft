@@ -1,6 +1,7 @@
 package io.github.dopodomani.wpsharetodraft.presentation.settings
 
 import io.github.dopodomani.wpsharetodraft.domain.ConnectionMethod
+import io.github.dopodomani.wpsharetodraft.domain.TitleMode
 
 /** See docs/phase3-android-app-design.md#3-viewmodel-construction. */
 sealed interface SettingsUiState {
@@ -12,6 +13,7 @@ sealed interface SettingsUiState {
         val username: String = "",
         val applicationPassword: String = "",
         val connectionMethod: ConnectionMethod = ConnectionMethod.XML_RPC,
+        val titleMode: TitleMode = TitleMode.AUTO,
         val validationError: String? = null,
     ) : SettingsUiState
 

@@ -20,6 +20,7 @@ data class AppSettings(
     val username: String,
     val applicationPassword: String,
     val connectionMethod: ConnectionMethod = ConnectionMethod.XML_RPC,
+    val titleMode: TitleMode = TitleMode.AUTO,
 )
 
 /**
@@ -29,3 +30,5 @@ data class AppSettings(
  * defaults to the transport confirmed to work, not REST. User-selected, never auto-switched.
  */
 enum class ConnectionMethod { XML_RPC, REST }
+
+enum class TitleMode { AUTO, FIRST_LINE }
