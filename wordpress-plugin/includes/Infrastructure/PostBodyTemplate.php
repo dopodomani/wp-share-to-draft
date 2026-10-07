@@ -74,7 +74,7 @@ final class PostBodyTemplate implements PostBodyRendererInterface
 
     private function isLinkLabel(string $line): bool
     {
-        return preg_match('/^\s*(リンク|link)\s*[:：]\s*(を含む|including)?\s*$/iu', $this->comparisonText($line)) === 1;
+        return preg_match('/^\s*(リンク|link)\s*[:：]\s*[/／]?\s*(を含む|including)?\s*$/iu', $this->comparisonText($line)) === 1;
     }
 
     private function comparisonText(string $value): string

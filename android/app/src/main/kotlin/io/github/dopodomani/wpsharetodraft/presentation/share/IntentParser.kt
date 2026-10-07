@@ -19,9 +19,19 @@ private const val SOURCE = "chrome_share"
  * a candidate line is treated as noise if stripping every known template word from it leaves
  * nothing -- a line with any real content alongside these words is left untouched.
  */
-private val LINK_TEMPLATE_LABEL = Regex("^\\s*(リンク|Link)\\s*[:：]\\s*(を含む|including)?\\s*$", RegexOption.IGNORE_CASE)
+private val LINK_TEMPLATE_LABEL = Regex("^\\s*(リンク|Link)\\s*[:：]\\s*[/／]?\\s*(を含む|including)?\\s*$", RegexOption.IGNORE_CASE)
 
-private fun isLinkTemplateNoise(line: String): Boolean = LINK_TEMPLATE_LABEL.matches(line.normalizeForLineCheck())
+private fun isLinkTemplateNoise(line: String): Boolean {
+    val normalized = line.normalizeForLineCheck()
+    if (LINK_TEMPLATE_LABEL.matches(normalized)) return true
+
+    val suffix = normalized
+        .replaceFirst(Regex("^\\s*(リンク|Link)\\s*[:：]", RegexOption.IGNORE_CASE), "")
+        .trim()
+        .trim('/', '／')
+        .trim()
+    return suffix.isEmpty() || suffix.equals("を含む", ignoreCase = true) || suffix.equals("including", ignoreCase = true)
+}
 
 /**
  * Translates a raw Android [Intent] (Chrome's `ACTION_SEND`) into a [CaptureItem]. The one
