@@ -303,7 +303,8 @@ final class PostBodyTemplate implements PostBodyRendererInterface {
     // 共有元: {payload->source}
     // メモ: {payload->memo ?? ''}
     //
-    // {payload->sharedText, if present}
+    // {payload->sharedText, if present; a normalized first meaningful line is omitted
+    //     when it matches the submitted title, preventing title duplication}
 }
 ```
 

@@ -57,6 +57,8 @@ Record every field below in the results doc before testing anything else.
 | App appears in the share sheet | "Material Capture" (or the configured `app_name`) is listed among share targets |
 | Share a page where Chrome's share text is just the URL | App opens to Confirm (or Settings first, if not yet configured) with `url` populated |
 | Share a page where Chrome populates both a title and a URL | Both `title` and `url` populated correctly on Confirm |
+| Share a page whose subject is `リンク: <url> を含む` (or `Link: <url> including`) | The browser template is ignored and the article's first meaningful line is used as the title |
+| Set title mode to `共有本文の1行目をタイトルにする` and share multi-line text | The first meaningful line is the title; the remaining lines are the initial memo; `sharedText` remains the URL-stripped source text |
 | Share content with multi-line text where a URL appears mid-text | The URL is extracted into the `url` field; the surrounding text (URL removed) appears in the app's internal `sharedText` — not directly visible on Confirm, but reflected in the eventual post body's shared-text section once submitted (§6) |
 | Share text containing no URL at all | App still opens; `url` field is **empty and editable** (never a crash, never a silent failure — per [docs/phase3-android-app-design.md §2](phase3-android-app-design.md#2-share-target-flow)) |
 | Compare against `IntentParserTest`'s covered cases | Confirm the real Chrome share intent shape matches what the unit tests assumed — if Chrome's actual `EXTRA_SUBJECT`/`EXTRA_TEXT` shape differs from what was tested, note it here as a finding, not just a pass/fail |
@@ -82,7 +84,7 @@ Record every field below in the results doc before testing anything else.
 | Title prefixed `[INBOX] ` | **Note:** this prefix is on the post *title*, not a category — the category is a separate field below. Don't conflate the two. |
 | Category is `素材候補` | Not literally named "`[INBOX]`" — `素材候補` ("material candidate") is the category name per [docs/api-spec.md](api-spec.md); confirm the post is filed under it |
 | `post_author` is the authenticated user | Check the post's author in wp-admin matches the account whose Application Password was used |
-| Title / URL / memo saved as expected | Post body contains 元URL, 保存日時 (server time), 共有日時 (if `shared_at` was sent), 共有元, メモ, and any `shared_text` — per the exact template in [docs/api-spec.md](api-spec.md#post-creation-semantics) |
+| Title / URL / memo saved as expected | Post body contains 元URL, 保存日時 (server time), 共有日時 (if `shared_at` was sent), 共有元, メモ, and any `shared_text` — per the exact template in [docs/api-spec.md](api-spec.md#post-creation-semantics); a matching first `shared_text` title line is rendered only once |
 | Response's `edit_url`/`preview_url` correct | If the app surfaces either after Success, confirm the link actually opens the right post in wp-admin |
 | Visible/correct in wp-admin | Open the post directly in wp-admin to cross-check everything above, not just trusting the app's own success screen |
 

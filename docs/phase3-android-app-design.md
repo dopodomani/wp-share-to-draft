@@ -125,17 +125,19 @@ sequenceDiagram
 class IntentParser @Inject constructor(
     private val clock: Clock,   // java.time.Clock, injected so tests can fix "now" — not an Android type
 ) {
-    fun parse(intent: Intent): CaptureItem
+    fun parse(intent: Intent, titleMode: TitleMode = TitleMode.AUTO): CaptureItem
 }
 ```
 
-Extraction rules (rows 1-4 unchanged from revision 1; row 3's `memo` mapping added in revision 2 — see below):
+Title selection is controlled by the saved `TitleMode` setting. `AUTO` preserves the original behavior, while `FIRST_LINE` lets users prefer the first meaningful line of shared text.
+
+Extraction rules:
 
 | Source | Maps to |
 |---|---|
-| `Intent.EXTRA_SUBJECT` | `CaptureItem.title` (falls back to `Intent.EXTRA_TEXT`'s first line, or an empty string requiring the user to fill it in on the Confirm screen, if `EXTRA_SUBJECT` is absent — Chrome's share sheet doesn't always populate it consistently) |
+| `Intent.EXTRA_SUBJECT` | `CaptureItem.title` in `AUTO` (unless it is Chrome's `リンク: <url> を含む`/`Link: <url> including` template); `FIRST_LINE` uses it only as a fallback when no meaningful text line exists |
 | A URL found within `Intent.EXTRA_TEXT` (via a plain-Kotlin regex/`Patterns.WEB_URL` match) | `CaptureItem.url` |
-| The remainder of `Intent.EXTRA_TEXT` (with the matched URL removed) | `CaptureItem.sharedText` **and** `CaptureItem.memo` (same value in both — see below) |
+| The remainder of `Intent.EXTRA_TEXT` (with the matched URL removed) | `CaptureItem.sharedText`; `CaptureItem.memo` is the same value in `AUTO`, while `FIRST_LINE` removes the selected title line from the initial memo value |
 | (fixed) | `CaptureItem.source = "chrome_share"` — free-form per [api-spec.md](api-spec.md#endpoints), matches the value this Android client identifies itself with |
 | `clock.instant()` at extraction time | `CaptureItem.sharedAt` |
 
@@ -147,7 +149,13 @@ If no URL can be found in the shared content at all, `IntentParser` still return
 
 **The actual gap this revision fixes:** the extracted remainder text (the selected text, or the shared text minus any detected URL) was only ever assigned to `CaptureItem.sharedText` — a field with **no representation in `ConfirmDraftScreen`** (see [§1](#1-screen-transition-diagram) — only `title`, `url`, `memo` are rendered). Sharing a text selection therefore looked like nothing had been captured at all, even when `sharedText` was populated correctly and sent to WordPress.
 
-**Decision:** `IntentParser` now also assigns the same remainder value to `CaptureItem.memo`, so the user sees and can edit it directly in the Confirm screen's existing メモ field before saving — no new UI element needed. `sharedText` keeps receiving the identical value unchanged, preserving its existing role (the raw captured text sent to WordPress as `shared_text`, rendered into the post body per [docs/phase2-wordpress-plugin-design.md](phase2-wordpress-plugin-design.md)); this revision only adds a second destination for the same value, it doesn't remove or repurpose the first.
+**Decision:** `IntentParser` assigns the remainder to `CaptureItem.memo` so the user sees and can edit it directly in the Confirm screen's existing メモ field before saving — no new UI element needed. This remains the behavior in `AUTO`; in `FIRST_LINE`, the selected title line is omitted from the initial memo to avoid showing it twice. `sharedText` keeps receiving the URL-stripped remainder unchanged in both modes, preserving its role as the raw captured text sent to WordPress as `shared_text`.
+
+#### Title mode and duplicate-title handling
+
+The Settings screen stores `title_mode` as `auto` or `first_line`; missing or unknown values fall back to `AUTO`. In `FIRST_LINE`, blank lines and known link-template labels (`リンク:`/`Link:` and the bounded suffixes `を含む`/`including`) are ignored when selecting the title. Unicode non-printing format characters are ignored for this classification only; the stored title and memo text are not rewritten.
+
+`sharedText` remains the URL-stripped source text in both modes. The initial `memo` omits the selected first line only in `FIRST_LINE`. On the WordPress side, `PostBodyTemplate` compares the normalized first meaningful `sharedText` line with the submitted title and omits it from rendered post content when they match. The API field itself is unchanged, and a manually edited/non-matching title never causes source text to be removed.
 
 **Alternative considered and rejected:** adding a new, separate "共有されたテキスト" display field to `ConfirmDraftScreen` instead of reusing `memo`. Rejected per explicit user preference — `memo` is where the user already expects to see/edit free text before saving, and a second near-duplicate field would be confusing for no added benefit in this app's actual usage pattern (single-user, not multi-source aggregation where telling "what was shared" apart from "what I annotated" would matter).
 
